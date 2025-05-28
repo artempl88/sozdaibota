@@ -1,18 +1,81 @@
-// server.js - Безопасная серверная часть (Node.js + Express)
+// server.js - Улучшенная серверная часть с безопасностью и аналитикой
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
+const mongoose = require('mongoose');
+const TelegramBot = require('node-telegram-bot-api');
+const NodeCache = require('node-cache');
+const crypto = require('crypto');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 require('dotenv').config();
 
 const app = express();
 
+// Инициализация кэша (10 минут TTL)
+const cache = new NodeCache({ stdTTL: 600 });
+
+// Инициализация Telegram бота
+let bot;
+if (process.env.TELEGRAM_BOT_TOKEN) {
+    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
+}
+
+// Подключение к MongoDB
+if (process.env.MONGODB_URI) {
+    mongoose.connect(process.env.MONGODB_URI)
+        .then(() => console.log('✅ MongoDB подключена'))
+        .catch(err => console.error('❌ Ошибка MongoDB:', err));
+}
+
+// Схемы MongoDB
+const ConversationSchema = new mongoose.Schema({
+    sessionId: String,
+    messages: [{
+        role: String,
+        content: String,
+        timestamp: { type: Date, default: Date.now }
+    }],
+    specification: Object,
+    createdAt: { type: Date, default: Date.now }
+});
+
+const AnalyticsSchema = new mongoose.Schema({
+    event: String,
+    data: Object,
+    timestamp: { type: Date, default: Date.now },
+    ip: String,
+    userAgent: String
+});
+
+const Conversation = mongoose.model('Conversation', ConversationSchema);
+const Analytics = mongoose.model('Analytics', AnalyticsSchema);
+
+// Безопасность с Helmet
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+}));
+
 // Middleware
 app.use(express.json({ limit: '10mb' }));
+
+// Улучшенный CORS
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['https://sozdaibota.ru', 'https://www.sozdaibota.ru', 'http://localhost:3000'];
+
 app.use(cors({
-    origin: ['https://создать-бота.рф', 'http://localhost:3000'], // Ваши домены
+    origin: allowedOrigins,
     credentials: true
 }));
 
@@ -27,9 +90,30 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// Конфигурация (в production используйте переменные окружения!)
+// Функции шифрования
+const encryptData = (text) => {
+    if (!process.env.ENCRYPTION_KEY) return text;
+    const cipher = crypto.createCipher('aes-256-cbc', process.env.ENCRYPTION_KEY);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return encrypted;
+};
+
+const decryptData = (encryptedText) => {
+    if (!process.env.ENCRYPTION_KEY) return encryptedText;
+    try {
+        const decipher = crypto.createDecipher('aes-256-cbc', process.env.ENCRYPTION_KEY);
+        let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch (e) {
+        return encryptedText;
+    }
+};
+
+// Конфигурация OpenAI
 const OPENAI_CONFIG = {
-    apiKey: process.env.OPENAI_API_KEY, // Безопасное хранение ключа
+    apiKey: process.env.OPENAI_API_KEY,
     model: 'gpt-4o-mini',
     endpoint: 'https://api.openai.com/v1/chat/completions'
 };
@@ -46,30 +130,66 @@ const proxyAgent = new HttpsProxyAgent(
     `http://${PROXY_CONFIG.username}:${PROXY_CONFIG.password}@${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`
 );
 
-// Системный промпт для GPT
-const SYSTEM_PROMPT = `Ты - умный помощник для создания технических заданий на Telegram-ботов компании "Создать Бота".
+// Улучшенный системный промпт
+const ENHANCED_SYSTEM_PROMPT = `Ты - старший технический консультант компании "Создать Бота" с 10-летним опытом.
 
-Твои задачи:
-1. Задавать умные наводящие вопросы о бизнесе клиента
-2. Понимать потребности и формулировать четкие требования
-3. Предлагать дополнительные полезные функции
-4. Говорить по-русски, дружелюбно но профессионально
-5. Быть кратким - максимум 2-3 предложения
+Твой подход:
+1. Начни с понимания БИЗНЕС-ЗАДАЧИ, а не технических деталей
+2. Задавай вопросы по методологии Jobs To Be Done
+3. Предлагай решения на основе успешных кейсов
 
-Важные правила:
-- Всегда спрашивай о типе бизнеса, основных задачах и целевой аудитории
-- Уточняй потребности в интеграциях (CRM, оплата, уведомления)
-- Предлагай современные решения с ИИ
-- Помогай клиенту четко сформулировать требования
+Структура диалога:
+- Этап 1: Выясни тип бизнеса и основную проблему
+- Этап 2: Определи целевую аудиторию и их боли
+- Этап 3: Предложи конкретные функции для решения
+- Этап 4: Обсуди интеграции и автоматизации
+- Этап 5: Сформируй четкое ТЗ с метриками успеха
 
-Стиль общения: дружелюбный эксперт, который понимает бизнес.`;
+Примеры умных вопросов:
+- "Какую основную задачу решают ваши клиенты?"
+- "Что сейчас отнимает больше всего времени?"
+- "Какие метрики покажут успех бота?"
 
-// Основной endpoint для GPT-помощника
+Стиль: дружелюбный эксперт, максимум 2-3 предложения.`;
+
+// A/B тестирование промптов
+const PROMPT_VARIANTS = {
+    A: "Привет! Я помогу создать идеального бота. Расскажи о своем бизнесе?",
+    B: "Здравствуйте! За 5 минут создам ТЗ на бота. Какую задачу решаем?"
+};
+
+const getRandomPrompt = () => {
+    return Math.random() > 0.5 ? PROMPT_VARIANTS.A : PROMPT_VARIANTS.B;
+};
+
+// Аналитика
+app.post('/api/analytics', async (req, res) => {
+    try {
+        const { event, data } = req.body;
+        
+        if (Analytics) {
+            await Analytics.create({
+                event,
+                data,
+                timestamp: new Date(),
+                ip: req.ip,
+                userAgent: req.get('User-Agent')
+            });
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Ошибка аналитики:', error);
+        res.status(500).json({ error: 'Ошибка сохранения аналитики' });
+    }
+});
+
+// Основной endpoint для GPT-помощника с кэшированием
 app.post('/api/gpt-assistant', async (req, res) => {
     try {
         console.log('📨 Получен запрос к GPT:', req.body);
 
-        const { message, conversation = [] } = req.body;
+        const { message, conversation = [], sessionId } = req.body;
 
         // Валидация входных данных
         if (!message || typeof message !== 'string') {
@@ -86,9 +206,34 @@ app.post('/api/gpt-assistant', async (req, res) => {
             });
         }
 
+        // Проверка кэша
+        const messageHash = crypto.createHash('md5').update(message + JSON.stringify(conversation)).digest('hex');
+        const cachedResponse = cache.get(messageHash);
+        if (cachedResponse) {
+            console.log('📦 Ответ из кэша');
+            return res.json(cachedResponse);
+        }
+
+        // Сохранение диалога в MongoDB
+        if (sessionId && Conversation) {
+            try {
+                await Conversation.findOneAndUpdate(
+                    { sessionId },
+                    {
+                        $push: {
+                            messages: { role: 'user', content: message }
+                        }
+                    },
+                    { upsert: true }
+                );
+            } catch (dbError) {
+                console.error('Ошибка сохранения в БД:', dbError);
+            }
+        }
+
         // Подготовка сообщений для OpenAI
         const messages = [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: ENHANCED_SYSTEM_PROMPT },
             ...conversation.slice(-10), // Берем последние 10 сообщений для контекста
             { role: 'user', content: message }
         ];
@@ -110,10 +255,10 @@ app.post('/api/gpt-assistant', async (req, res) => {
                 headers: {
                     'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
                     'Content-Type': 'application/json',
-                    'User-Agent': 'CreateBot-Assistant/1.0'
+                    'User-Agent': 'CreateBot-Assistant/2.0'
                 },
                 httpsAgent: proxyAgent,
-                timeout: 30000 // 30 секунд таймаут
+                timeout: 30000
             }
         );
 
@@ -125,15 +270,36 @@ app.post('/api/gpt-assistant', async (req, res) => {
             throw new Error('Нет ответа от OpenAI');
         }
 
+        // Сохранение ответа ассистента в MongoDB
+        if (sessionId && Conversation) {
+            try {
+                await Conversation.findOneAndUpdate(
+                    { sessionId },
+                    {
+                        $push: {
+                            messages: { role: 'assistant', content: assistantMessage }
+                        }
+                    }
+                );
+            } catch (dbError) {
+                console.error('Ошибка сохранения ответа в БД:', dbError);
+            }
+        }
+
         // Анализ ответа для предложения быстрых кнопок
         const quickReplies = generateQuickReplies(assistantMessage, message);
 
-        res.json({
+        const result = {
             success: true,
             message: assistantMessage,
             quickReplies: quickReplies,
             usage: response.data.usage
-        });
+        };
+
+        // Кэширование ответа
+        cache.set(messageHash, result);
+
+        res.json(result);
 
     } catch (error) {
         console.error('❌ Ошибка GPT API:', error.message);
@@ -153,6 +319,39 @@ app.post('/api/gpt-assistant', async (req, res) => {
             fallback: true,
             message: getFallbackResponse(req.body.message)
         });
+    }
+});
+
+// Webhook для отправки лидов в Telegram
+app.post('/api/lead-notification', async (req, res) => {
+    try {
+        const { name, telegram, message, specification } = req.body;
+        
+        if (!bot || !process.env.ADMIN_CHAT_ID) {
+            return res.json({ success: false, error: 'Telegram не настроен' });
+        }
+        
+        const text = `🚀 Новая заявка!\n\n` +
+                    `👤 Имя: ${name}\n` +
+                    `💬 Telegram: ${telegram}\n` +
+                    `📝 Сообщение: ${message}\n` +
+                    `📋 ТЗ создано: ${specification ? 'Да' : 'Нет'}`;
+        
+        await bot.sendMessage(process.env.ADMIN_CHAT_ID, text);
+        
+        // Сохранение аналитики
+        if (Analytics) {
+            await Analytics.create({
+                event: 'lead_submitted',
+                data: { name, telegram, hasSpecification: !!specification },
+                ip: req.ip
+            });
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Ошибка отправки в Telegram:', error);
+        res.status(500).json({ error: 'Ошибка отправки уведомления' });
     }
 });
 
@@ -220,13 +419,13 @@ function getFallbackResponse(userMessage) {
         }
     }
 
-    return 'Интересно! Расскажите подробнее - это поможет создать идеального бота для вас.';
+    return getRandomPrompt();
 }
 
 // Endpoint для создания структурированного ТЗ
 app.post('/api/generate-specification', async (req, res) => {
     try {
-        const { conversation } = req.body;
+        const { conversation, sessionId } = req.body;
 
         if (!conversation || conversation.length < 3) {
             return res.status(400).json({
@@ -247,7 +446,8 @@ app.post('/api/generate-specification', async (req, res) => {
     "key_features": ["Функция 1", "Функция 2", "Функция 3"],
     "integrations": ["Интеграция 1"],
     "ai_level": "Уровень ИИ",
-    "description": "Краткое описание проекта"
+    "description": "Краткое описание проекта",
+    "success_metrics": ["Метрика 1", "Метрика 2"]
 }
 
 Отвечай ТОЛЬКО JSON, без дополнительного текста.`;
@@ -277,15 +477,34 @@ app.post('/api/generate-specification', async (req, res) => {
         
         try {
             const specification = JSON.parse(specText);
+            
+            // Сохранение ТЗ в MongoDB
+            if (sessionId && Conversation) {
+                await Conversation.findOneAndUpdate(
+                    { sessionId },
+                    { specification: specification }
+                );
+            }
+            
+            // Аналитика создания ТЗ
+            if (Analytics) {
+                await Analytics.create({
+                    event: 'specification_created',
+                    data: { sessionId, businessType: specification.business_type },
+                    ip: req.ip
+                });
+            }
+            
             res.json({
                 success: true,
                 specification: specification
             });
         } catch (e) {
             // Если не удалось распарсить JSON, создаем fallback
+            const fallbackSpec = createFallbackSpec(conversation);
             res.json({
                 success: true,
-                specification: createFallbackSpec(conversation)
+                specification: fallbackSpec
             });
         }
 
@@ -314,16 +533,54 @@ function createFallbackSpec(conversation) {
         ],
         integrations: ["По требованию"],
         ai_level: "Адаптивный",
-        description: "Создание персонализированного Telegram-бота под требования бизнеса"
+        description: "Создание персонализированного Telegram-бота под требования бизнеса",
+        success_metrics: ["Увеличение конверсии", "Снижение нагрузки на поддержку"]
     };
 }
+
+// Получение аналитики (для админки)
+app.get('/api/analytics/summary', async (req, res) => {
+    try {
+        if (!Analytics) {
+            return res.json({ error: 'База данных недоступна' });
+        }
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const [totalConversations, todayConversations, specificationsCreated] = await Promise.all([
+            Analytics.countDocuments({ event: 'conversation_started' }),
+            Analytics.countDocuments({ 
+                event: 'conversation_started',
+                timestamp: { $gte: today }
+            }),
+            Analytics.countDocuments({ event: 'specification_created' })
+        ]);
+        
+        res.json({
+            totalConversations,
+            todayConversations,
+            specificationsCreated,
+            conversionRate: totalConversations > 0 ? (specificationsCreated / totalConversations * 100).toFixed(1) : 0
+        });
+    } catch (error) {
+        console.error('Ошибка получения аналитики:', error);
+        res.status(500).json({ error: 'Ошибка получения аналитики' });
+    }
+});
 
 // Проверка здоровья сервиса
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        service: 'CreateBot GPT Assistant'
+        service: 'CreateBot GPT Assistant v2.0',
+        features: {
+            mongodb: !!mongoose.connection.readyState,
+            telegram: !!bot,
+            cache: cache.getStats(),
+            encryption: !!process.env.ENCRYPTION_KEY
+        }
     });
 });
 
@@ -339,11 +596,19 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-    console.log(`🚀 GPT Assistant Server запущен на порту ${PORT}`);
+    console.log(`🚀 GPT Assistant Server v2.0 запущен на порту ${PORT}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
     
     if (!process.env.OPENAI_API_KEY) {
         console.warn('⚠️  ВНИМАНИЕ: Не установлен OPENAI_API_KEY!');
+    }
+    
+    if (!process.env.MONGODB_URI) {
+        console.warn('⚠️  ВНИМАНИЕ: Не установлен MONGODB_URI!');
+    }
+    
+    if (!process.env.TELEGRAM_BOT_TOKEN) {
+        console.warn('⚠️  ВНИМАНИЕ: Не установлен TELEGRAM_BOT_TOKEN!');
     }
 });
 
