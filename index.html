@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Создай умного Telegram-бота за 1 день. Автоматизируем общение, продажи и аналитику через мощные боты с ИИ. От 7 900₽.">
+    <meta name="keywords" content="создать бота, telegram бот, создать бота в телеграмме, чат бот, разработка ботов, GPT интеграция">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Создать Бота - Умные Telegram боты за 1 день">
+    <meta property="og:description" content="Создай умного Telegram-бота за 1 день. Автоматизация общения, продаж и аналитики с ИИ.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://создать-бота.рф">
+    <title>Создать Бота - Умные Telegram боты с ИИ за 1 день | От 7900₽</title>
+    <link rel="canonical" href="https://создать-бота.рф">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #0088CC;
+            --accent-gradient: linear-gradient(135deg, #00C2FF 0%, #84F0F5 100%);
+            --button-gradient: linear-gradient(135deg, #00C2FF, #0088CC);
+            --background-white: #FFFFFF;
+            --text-dark: #222222;
+            --text-light: #666666;
+            --soft-blue: #EAF3F7;
+            --shadow: 0 4px 12px rgba(0, 136, 204, 0.25);
+            --shadow-hover: 0 6px 16px rgba(0, 136, 204, 0.35);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            overflow-x: hidden;
+            background: var(--background-white);
+        }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        /* Button Components */
+        .button-primary {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            font-family: 'Manrope', sans-serif;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .button-primary.large {
+            padding: 16px 32px;
+            font-size: 1.1rem;
+            border-radius: 16px;
+        }
+
+        .button-secondary {
+            background: transparent;
+            color: var(--primary-blue);
+            border: 2px solid var(--primary-blue);
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            font-family: 'Manrope', sans-serif;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .button-secondary:hover {
+            background: var(--primary-blue);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 136, 204, 0.4);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 0 0 20px rgba(0, 136, 204, 0);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-8px) rotate(1deg); }
+            66% { transform: translateY(-4px) rotate(-1deg); }
+        }
+
+        /* Header */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 136, 204, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--button-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: float 4s ease-in-out infinite;
+            box-shadow: var(--shadow);
+        }
+
+        .logo-icon::after {
+            content: '▶';
+            color: var(--background-white);
+            font-size: 1.5rem;
+            margin-left: 2px;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-blue);
+            background: var(--soft-blue);
+        }
+
+        .nav-cta {
+            margin-left: 1rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--accent-gradient);
+            color: var(--background-white);
+            padding: 150px 0 100px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="3" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="80" r="1.5" fill="rgba(255,255,255,0.1)"/></svg>');
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .hero-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-emoji {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 1s ease-out 0.2s both;
+        }
+
+        .hero-description {
+            font-size: 1.3rem;
+            margin-bottom: 3rem;
+            opacity: 0.95;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        /* Advantages Section */
+        .advantages {
+            padding: 100px 0;
+            background: var(--background-white);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 4rem;
+            color: var(--text-dark);
+        }
+
+        .advantages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2.5rem;
+        }
+
+        .advantage-card {
+            background: var(--background-white);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            transition: all 0.4s ease;
+            border: 1px solid rgba(0, 136, 204, 0.08);
+            text-align: center;
+        }
+
+        .advantage-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .advantage-icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .advantage-card h3 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .advantage-card p {
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
+        /* Portfolio Section */
+        .portfolio {
+            padding: 100px 0;
+            background: var(--soft-blue);
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2.5rem;
+            margin-top: 3rem;
+        }
+
+        .portfolio-card {
+            background: var(--background-white);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: all 0.4s ease;
+        }
+
+        .portfolio-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .portfolio-image {
+            height: 200px;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+        }
+
+        .portfolio-content {
+            padding: 2rem;
+        }
+
+        .portfolio-content h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .portfolio-content p {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Pricing Section */
+        .pricing {
+            padding: 100px 0;
+            background: var(--background-white);
+        }
+
+        .pricing-table {
+            max-width: 900px;
+            margin: 3rem auto 0;
+            background: var(--background-white);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .pricing-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .pricing-table th {
+            background: var(--button-gradient);
+            color: white;
+            padding: 1.5rem;
+            text-align: left;
+            font-family: 'Manrope', sans-serif;
+            font-weight: 600;
+        }
+
+        .pricing-table td {
+            padding: 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .pricing-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .pricing-table tr:nth-child(even) {
+            background: rgba(0, 136, 204, 0.02);
+        }
+
+        .pricing-table .price {
+            font-weight: 700;
+            color: var(--primary-blue);
+            font-size: 1.1rem;
+        }
+
+        /* Testimonials Section */
+        .testimonials {
+            padding: 100px 0;
+            background: var(--soft-blue);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .testimonial-card {
+            background: var(--background-white);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .testimonial-card::before {
+            content: '"';
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            font-size: 4rem;
+            color: var(--primary-blue);
+            opacity: 0.3;
+        }
+
+        .testimonial-text {
+            margin-bottom: 1.5rem;
+            font-style: italic;
+            color: var(--text-light);
+        }
+
+        .testimonial-author {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .testimonial-company {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* Contact Section */
+        .contact {
+            padding: 100px 0;
+            background: var(--accent-gradient);
+            color: var(--background-white);
+        }
+
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 3rem;
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 1.2rem;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            background: rgba(255,255,255,0.9);
+            transition: all 0.3s ease;
+            color: var(--text-dark);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            background: var(--background-white);
+            border-color: var(--primary-blue);
+            transform: scale(1.02);
+            box-shadow: 0 0 0 4px rgba(0, 136, 204, 0.1);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: var(--background-white);
+            padding: 3rem 0;
+            text-align: center;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .advantages-grid,
+            .portfolio-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-table {
+                overflow-x: auto;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+        }
+
+        /* Scroll animations */
+        .scroll-animate {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease;
+        }
+
+        .scroll-animate.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Loading animation */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-gradient);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: var(--background-white);
+        }
+
+        .loading-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--background-white);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            animation: pulse 2s infinite;
+        }
+
+        .loading-logo::after {
+            content: '▶';
+            color: var(--primary-blue);
+            font-size: 2rem;
+            margin-left: 3px;
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            font-family: 'Manrope', sans-serif;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-subtext {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        /* Demo Bot Interface */
+        .bot-demo {
+            max-width: 400px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin: 2rem auto;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .bot-message {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .bot-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .bot-button {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .bot-button:hover {
+            transform: scale(1.02);
+        }
+
+        /* GPT Assistant Widget - Optimized */
+        .gpt-assistant {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .gpt-toggle {
+            width: 70px;
+            height: 70px;
+            background: var(--button-gradient);
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-hover);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 3s infinite;
+        }
+
+        .gpt-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 136, 204, 0.4);
+        }
+
+        .gpt-chat {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            width: 400px;
+            height: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow-hover);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(0, 136, 204, 0.1);
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .gpt-chat.active {
+            display: flex;
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .gpt-header {
+            background: var(--button-gradient);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .gpt-title {
+            font-family: 'Manrope', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .gpt-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .gpt-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .gpt-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            scroll-behavior: smooth;
+        }
+
+        .gpt-message {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            opacity: 0;
+            animation: messageSlideIn 0.3s ease forwards;
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .gpt-message.assistant {
+            background: var(--soft-blue);
+            color: var(--text-dark);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .gpt-message.user {
+            background: var(--button-gradient);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .gpt-input-area {
+            padding: 1rem;
+            border-top: 1px solid #eee;
+            background: #f8f9fa;
+            flex-shrink: 0;
+        }
+
+        .gpt-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            resize: none;
+        }
+
+        .gpt-input:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        .gpt-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .gpt-option {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+
+        .gpt-option:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .gpt-option:active {
+            transform: translateY(0);
+        }
+
+        .gpt-typing {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-light);
+            font-style: italic;
+            font-size: 0.8rem;
+            padding: 0.5rem;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 2px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--primary-blue);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-8px);
+                opacity: 1;
+            }
+        }
+
+        .gpt-summary {
+            background: linear-gradient(135deg, rgba(0, 194, 255, 0.1), rgba(132, 240, 245, 0.1));
+            border: 1px solid rgba(0, 136, 204, 0.2);
+            padding: 1rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+        }
+
+        .gpt-summary h4 {
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .gpt-summary ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .gpt-summary li {
+            padding: 0.25rem 0;
+            font-size: 0.9rem;
+            color: var(--text-dark);
+        }
+
+        .gpt-summary li::before {
+            content: '✓';
+            color: var(--primary-blue);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .generate-pdf-btn {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-family: 'Manrope', sans-serif;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+            margin-top: 1rem;
+            font-size: 1rem;
+        }
+
+        .generate-pdf-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .generate-pdf-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Performance optimizations */
+        .gpt-messages {
+            will-change: scroll-position;
+        }
+
+        .gpt-message {
+            will-change: transform, opacity;
+        }
+
+        /* Mobile responsive for GPT widget */
+        @media (max-width: 768px) {
+            .gpt-chat {
+                width: calc(100vw - 20px);
+                height: calc(100vh - 100px);
+                bottom: 80px;
+                right: 10px;
+                left: 10px;
+            }
+            
+            .gpt-toggle {
+                width: 60px;
+                height: 60px;
+                font-size: 1.3rem;
+            }
+            
+            .gpt-message {
+                max-width: 90%;
+            }
+            
+            .gpt-buttons {
+                flex-direction: column;
+            }
+            
+            .gpt-option {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loading">
+        <div class="loading-content">
+            <div class="loading-logo"></div>
+            <div class="loading-text">🧠 Думаю... Прокачиваю нейроны.</div>
+            <div class="loading-subtext">Готовлю для тебя крутого бота</div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <nav>
+            <a href="#" class="logo">
+                <div class="logo-icon"></div>
+                <span>Создать Бота</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#advantages">Возможности</a></li>
+                <li><a href="#portfolio">Портфолио</a></li>
+                <li><a href="#pricing">Тарифы</a></li>
+                <li><a href="#contact">Контакты</a></li>
+            </ul>
+            <div class="nav-cta">
+                <a href="#contact" class="button-primary">Создать бота</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-emoji">🧠</div>
+            <h1>Создай умного Telegram-бота за 1 день</h1>
+            <div class="hero-description">
+                🤖 Мы автоматизируем общение, продажи и аналитику через мощные боты с искусственным интеллектом.
+            </div>
+            <div class="hero-buttons">
+                <a href="#contact" class="button-primary large">🚀 Заказать бота</a>
+                <a href="#portfolio" class="button-secondary large">📂 Примеры работ</a>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 12px; backdrop-filter: blur(10px);">
+                <p style="margin-bottom: 1rem; font-size: 1rem; opacity: 0.9;">
+                    💡 <strong>Не знаешь, что именно нужно?</strong> Наш GPT-помощник поможет сформулировать задачу и создаст готовое ТЗ!
+                </p>
+                <button onclick="document.getElementById('gptToggle').click()" style="background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 0.75rem 1.5rem; border-radius: 25px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='translateY(0)'">
+                    🤖 Запустить GPT-помощника
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advantages Section -->
+    <section class="advantages scroll-animate" id="advantages">
+        <div class="container">
+            <h2 class="section-title">Что умеют наши боты</h2>
+            <div class="advantages-grid">
+                <div class="advantage-card">
+                    <span class="advantage-icon">🔄</span>
+                    <h3>Автоматизация</h3>
+                    <p>Бот — это не сложно. Главное — сделать его правильно. Автоматизируй рутину и сосредоточься на важном.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">🧠</span>
+                    <h3>ИИ-интеграции</h3>
+                    <p>Подключаем ChatGPT, Claude и другие нейросети. Твой бот будет общаться как живой менеджер.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">🔧</span>
+                    <h3>Поддержка и кастомизация</h3>
+                    <p>Запусти бота сегодня, обновляй завтра. Мы поддерживаем и развиваем каждое решение.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">🎯</span>
+                    <h3>GPT-Помощник для ТЗ</h3>
+                    <p>Не знаешь, что именно нужно? Наш умный помощник задаст правильные вопросы и сформирует готовое техническое задание в PDF.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Portfolio Section -->
+    <section class="portfolio scroll-animate" id="portfolio">
+        <div class="container">
+            <h2 class="section-title">Примеры проектов</h2>
+            <div class="portfolio-grid">
+                <div class="portfolio-card">
+                    <div class="portfolio-image">🛒</div>
+                    <div class="portfolio-content">
+                        <h3>Интернет-магазин обуви</h3>
+                        <p>Бот-консультант с каталогом, оформлением заказов и оплатой. Увеличил конверсию на 40%.</p>
+                        <a href="#" class="button-primary">Посмотреть демо</a>
+                    </div>
+                </div>
+                <div class="portfolio-card">
+                    <div class="portfolio-image">🎓</div>
+                    <div class="portfolio-content">
+                        <h3>Образовательная платформа</h3>
+                        <p>Бот-куратор курсов с ИИ-помощником для ответов на вопросы учеников.</p>
+                        <a href="#" class="button-primary">Посмотреть демо</a>
+                    </div>
+                </div>
+                <div class="portfolio-card">
+                    <div class="portfolio-image">🏠</div>
+                    <div class="portfolio-content">
+                        <h3>Агентство недвижимости</h3>
+                        <p>Умный бот для подбора квартир с фильтрами и автоматической рассылкой новинок.</p>
+                        <a href="#" class="button-primary">Посмотреть демо</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bot Demo -->
+            <div class="bot-demo">
+                <div class="bot-message">
+                    <strong>🤖 Создать Бота</strong><br>
+                    👋 Привет! Добро пожаловать в Создать Бота.<br>
+                    Я помогу тебе собрать собственного Telegram-бота с интеллектом. Готов начать?
+                </div>
+                <div class="bot-buttons">
+                    <button class="bot-button">⚙️ Конструктор</button>
+                    <button class="bot-button">💬 GPT-интеграция</button>
+                    <button class="bot-button">📄 Примеры</button>
+                    <button class="bot-button">💼 Связаться</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing scroll-animate" id="pricing">
+        <div class="container">
+            <h2 class="section-title">Тарифы и услуги</h2>
+            <div class="pricing-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Услуга</th>
+                            <th>Описание</th>
+                            <th>Цена от</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Чат-бот с меню</strong></td>
+                            <td>Telegram-бот с логикой и кнопками</td>
+                            <td class="price">от 7 900 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GPT-интеграция</strong></td>
+                            <td>Интеграция с OpenAI и другими ИИ</td>
+                            <td class="price">от 15 000 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>WebApp (мини-приложение)</strong></td>
+                            <td>Интерфейс внутри Telegram</td>
+                            <td class="price">от 25 000 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>CRM-интеграция</strong></td>
+                            <td>Подключение к amoCRM, Bitrix24</td>
+                            <td class="price">от 20 000 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Бот для продаж</strong></td>
+                            <td>Каталог + корзина + оплата</td>
+                            <td class="price">от 35 000 ₽</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Корпоративное решение</strong></td>
+                            <td>Индивидуальная разработка</td>
+                            <td class="price">от 100 000 ₽</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="#contact" class="button-primary large">Получи демо</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials scroll-animate">
+        <div class="container">
+            <h2 class="section-title">Отзывы клиентов</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-text">
+                        Заказали бота для нашего интернет-магазина. За месяц автоматизировали 70% заказов. Клиенты довольны, мы тоже!
+                    </div>
+                    <div class="testimonial-author">Анна Петрова</div>
+                    <div class="testimonial-company">Директор "Обувь Онлайн"</div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-text">
+                        Бот с GPT для нашей школы программирования — это бомба! Отвечает на вопросы учеников лучше некоторых преподавателей.
+                    </div>
+                    <div class="testimonial-author">Михаил Сидоров</div>
+                    <div class="testimonial-company">Основатель IT-Academy</div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-text">
+                        Сделали за 3 дня то, на что у нас ушло бы 3 месяца. Профессионально, быстро, с пониманием бизнеса.
+                    </div>
+                    <div class="testimonial-author">Елена Козлова</div>
+                    <div class="testimonial-company">Маркетинг-директор</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact scroll-animate" id="contact">
+        <div class="container">
+            <h2 class="section-title">Готов создать своего бота?</h2>
+            <form class="contact-form" id="contactForm">
+                <div class="form-group">
+                    <label for="name">Имя</label>
+                    <input type="text" id="name" name="name" required placeholder="Как к вам обращаться?">
+                </div>
+                <div class="form-group">
+                    <label for="telegram">Telegram @username</label>
+                    <input type="text" id="telegram" name="telegram" placeholder="@your_username">
+                </div>
+                <div class="form-group">
+                    <label for="message">Что должен уметь бот</label>
+                    <textarea id="message" name="message" rows="5" required placeholder="Опиши задачу: продавать товары, отвечать на вопросы, собирать заявки... Чем подробнее — тем точнее расчёт."></textarea>
+                </div>
+                <button type="submit" class="button-primary large" style="width: 100%;">Отправить</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Создать Бота. Делаем боты правильно. | <a href="mailto:hello@создать-бота.рф" style="color: #84F0F5;">hello@создать-бота.рф</a> | <a href="https://t.me/создать_бота" style="color: #84F0F5;">@создать_бота</a></p>
+        </div>
+    </footer>
+
+    <!-- GPT Assistant Widget -->
+    <div class="gpt-assistant">
+        <button class="gpt-toggle" id="gptToggle">🤖</button>
+        <div class="gpt-chat" id="gptChat">
+            <div class="gpt-header">
+                <div class="gpt-title">
+                    🧠 GPT-Помощник
+                </div>
+                <button class="gpt-close" id="gptClose">×</button>
+            </div>
+            <div class="gpt-messages" id="gptMessages">
+                <!-- Messages will be added here -->
+            </div>
+            <div class="gpt-input-area">
+                <input type="text" class="gpt-input" id="gptInput" placeholder="Напишите ваш ответ...">
+                <div class="gpt-buttons" id="gptButtons">
+                    <!-- Quick reply buttons will be added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Loading screen
+        window.addEventListener('load', function() {
+            const loading = document.getElementById('loading');
+            setTimeout(() => {
+                loading.classList.add('hidden');
+            }, 1500);
+        });
+
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Scroll animations
+        const observerOptions = {
+            threshold: 0.15,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.scroll-animate').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 100) {
+                header.style.background = 'rgba(255, 255, 255, 0.98)';
+                header.style.boxShadow = '0 4px 20px rgba(0, 136, 204, 0.15)';
+            } else {
+                header.style.background = 'rgba(255, 255, 255, 0.95)';
+                header.style.boxShadow = 'none';
+            }
+        });
+
+        // Bot demo interaction
+        document.querySelectorAll('.bot-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const responses = {
+                    '⚙️ Конструктор': 'Отлично! Создам конструктор бота для твоего бизнеса. Какую задачу будем решать?',
+                    '💬 GPT-интеграция': 'Подключим ChatGPT к твоему боту. Он будет отвечать как живой менеджер!',
+                    '📄 Примеры': 'Покажу тебе готовые решения для разных бизнесов.',
+                    '💼 Связаться': 'Отлично! Пиши @создать_бота или заполни форму ниже 👇'
+                };
+                
+                const message = document.querySelector('.bot-message');
+                message.innerHTML = `<strong>🤖 Создать Бота</strong><br>${responses[this.textContent]}`;
+                
+                // Scroll to contact form for the last button
+                if (this.textContent === '💼 Связаться') {
+                    setTimeout(() => {
+                        document.getElementById('contact').scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    }, 1000);
+                }
+            });
+        });
+
+        // Form submission
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.innerHTML = '⏳ Отправляем заявку...';
+            submitBtn.disabled = true;
+            
+            // Simulate API call
+            setTimeout(() => {
+                submitBtn.innerHTML = '✅ Заявка отправлена!';
+                submitBtn.style.background = '#00C851';
+                
+                setTimeout(() => {
+                    alert('🎉 Супер! Заявка принята.\n\n🚀 Что дальше:\n• Изучим твою задачу (15 мин)\n• Подготовим предложение с ценой\n• Свяжемся в течение 2 часов\n\nА пока можешь написать в Telegram: @создать_бота');
+                    this.reset();
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.style.background = '';
+                    submitBtn.disabled = false;
+                }, 1000);
+            }, 2000);
+        });
+
+        // Easter egg in logo
+        let logoClicks = 0;
+        document.querySelector('.logo-icon').addEventListener('click', function() {
+            logoClicks++;
+            if (logoClicks === 3) {
+                this.style.animation = 'pulse 0.5s ease';
+                setTimeout(() => {
+                    this.style.animation = 'float 4s ease-in-out infinite';
+                }, 500);
+            }
+            if (logoClicks === 5) {
+                alert('🎯 Секретный режим активирован!\n\nТы нашёл пасхалку! За внимательность дарим скидку 10% на первого бота.\n\nПромокод: EASTER2024\n\nИспользуй при заказе! 🎁');
+                logoClicks = 0;
+            }
+        });
+
+        // Parallax effect
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const rate = scrolled * -0.2;
+            const hero = document.querySelector('.hero');
+            if (hero && scrolled < hero.offsetHeight) {
+                hero.style.transform = `translateY(${rate}px)`;
+            }
+        });
+
+        // Add typing effect to bot demo
+        function typeMessage(element, text, speed = 50) {
+            element.innerHTML = '<strong>🤖 Создать Бота</strong><br>';
+            let i = 0;
+            
+            function type() {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+
+        // Initialize typing effect after page load
+        setTimeout(() => {
+            const botMessage = document.querySelector('.bot-message');
+            const originalText = '👋 Привет! Добро пожаловать в Создать Бота.\nЯ помогу тебе собрать собственного Telegram-бота с интеллектом. Готов начать?';
+            typeMessage(botMessage, originalText, 30);
+        }, 2000);
+
+        // GPT Assistant Logic with OpenAI Integration
+        class GPTAssistant {
+            constructor() {
+                this.currentStep = 0;
+                this.userData = {};
+                this.suggestions = [];
+                this.isActive = false;
+                this.conversationHistory = [];
+                
+                // API Configuration (В продакшене эти данные должны быть на сервере!)
+                this.apiConfig = {
+                    endpoint: 'https://api.openai.com/v1/chat/completions',
+                    model: 'gpt-4o-mini',
+                    proxy: {
+                        host: '141.98.187.117',
+                        port: '8000',
+                        username: 'qr4NBX',
+                        password: 'mFmLGN'
+                    }
+                };
+                
+                this.systemPrompt = `Ты - умный помощник для создания технических заданий на Telegram-ботов. 
+                Твоя задача:
+                1. Задавать умные наводящие вопросы о бизнесе клиента
+                2. Понимать потребности и формулировать четкие требования  
+                3. Предлагать дополнительные полезные функции
+                4. Говорить по-русски, дружелюбно но профессионально
+                5. Быть кратким - максимум 2-3 предложения
+                
+                Сейчас ты собираешь информацию для создания ТЗ на Telegram-бота.`;
+                
+                this.init();
+            }
+            
+            init() {
+                const toggle = document.getElementById('gptToggle');
+                const close = document.getElementById('gptClose');
+                const input = document.getElementById('gptInput');
+                
+                toggle.addEventListener('click', () => this.toggleChat());
+                close.addEventListener('click', () => this.closeChat());
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.handleInput(input.value);
+                        input.value = '';
+                    }
+                });
+                
+                // Preload system
+                this.initializeConversation();
+            }
+            
+            async initializeConversation() {
+                this.conversationHistory = [
+                    {
+                        role: "system",
+                        content: this.systemPrompt
+                    },
+                    {
+                        role: "assistant", 
+                        content: "Привет! 👋 Я GPT-помощник для создания ТЗ на бота. Расскажи, для какого бизнеса создаем бота?"
+                    }
+                ];
+            }
+            
+            async callOpenAI(userMessage) {
+                try {
+                    // В продакшене этот запрос должен идти через ваш backend!
+                    const messages = [
+                        ...this.conversationHistory,
+                        { role: "user", content: userMessage }
+                    ];
+                    
+                    // Прокси-запрос (В реальном проекте делается на сервере)
+                    const response = await this.makeProxiedRequest({
+                        model: this.apiConfig.model,
+                        messages: messages,
+                        max_tokens: 300,
+                        temperature: 0.7,
+                        stream: false
+                    });
+                    
+                    if (response.choices && response.choices[0]) {
+                        const assistantMessage = response.choices[0].message.content;
+                        
+                        // Добавляем в историю
+                        this.conversationHistory.push(
+                            { role: "user", content: userMessage },
+                            { role: "assistant", content: assistantMessage }
+                        );
+                        
+                        return assistantMessage;
+                    }
+                    
+                    throw new Error('Нет ответа от API');
+                    
+                } catch (error) {
+                    console.error('OpenAI API Error:', error);
+                    return this.getFallbackResponse(userMessage);
+                }
+            }
+            
+            async makeProxiedRequest(payload) {
+                // ВАЖНО: В продакшене это должно быть реализовано на вашем сервере!
+                // Этот код только для демонстрации структуры
+                
+                try {
+                    // Симуляция прокси-запроса
+                    const proxyUrl = `/api/openai-proxy`; // Ваш endpoint
+                    
+                    const response = await fetch(proxyUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            payload: payload,
+                            proxy: this.apiConfig.proxy
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return await response.json();
+                    
+                } catch (error) {
+                    // Fallback к прямому запросу (только для демо)
+                    return this.simulateAPIResponse(payload);
+                }
+            }
+            
+            simulateAPIResponse(payload) {
+                // Умная имитация ответов на основе контекста
+                const userInput = payload.messages[payload.messages.length - 1].content.toLowerCase();
+                
+                const responses = {
+                    'интернет': 'Отлично! Интернет-магазин. Какие товары продаете? Нужен ли каталог с корзиной и оплатой?',
+                    'образован': 'Супер! Образовательная сфера. Онлайн-курсы, школа или университет? Нужна ли система записи на занятия?',
+                    'услуг': 'Понял! Сфера услуг. Какие именно услуги? Нужна ли запись клиентов и напоминания?',
+                    'недвижим': 'Ясно! Недвижимость. Продажа или аренда? Нужен ли поиск объектов с фильтрами?',
+                    'заказ': 'Хорошо! Прием заказов - это важно. Нужны ли корзина, расчет стоимости и статусы заказов?',
+                    'вопрос': 'Понятно! FAQ-бот. Какие вопросы чаще всего задают клиенты? Нужна ли переадресация к менеджеру?',
+                    'запис': 'Отлично! Система записи. На какие услуги записываем? Нужен ли календарь и напоминания?',
+                    'заявк': 'Супер! Сбор заявок. Какую информацию собираем? Email, телефон, описание задачи?',
+                    'продаж': 'Ясно! Продажи через бота. Какой товар? Нужны ли каталог, корзина и онлайн-оплата?'
+                };
+                
+                for (let key in responses) {
+                    if (userInput.includes(key)) {
+                        return {
+                            choices: [{
+                                message: {
+                                    content: responses[key]
+                                }
+                            }]
+                        };
+                    }
+                }
+                
+                // Универсальный ответ
+                return {
+                    choices: [{
+                        message: {
+                            content: "Интересно! Расскажите подробнее - это поможет мне лучше понять ваши потребности и предложить оптимальное решение."
+                        }
+                    }]
+                };
+            }
+            
+            getFallbackResponse(userMessage) {
+                // Резервные ответы при недоступности API
+                const fallbacks = [
+                    "Понял вас! Давайте разберем эту задачу подробнее.",
+                    "Отличная идея! Какие еще требования у вас есть?",
+                    "Это важная функция. Что еще должен уметь ваш бот?",
+                    "Хорошо! Нужны ли дополнительные интеграции?"
+                ];
+                
+                return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            }
+            
+            toggleChat() {
+                const chat = document.getElementById('gptChat');
+                if (!this.isActive) {
+                    chat.classList.add('active');
+                    this.isActive = true;
+                    this.startConversation();
+                } else {
+                    chat.classList.remove('active');
+                    this.isActive = false;
+                }
+            }
+            
+            closeChat() {
+                document.getElementById('gptChat').classList.remove('active');
+                this.isActive = false;
+            }
+            
+            startConversation() {
+                this.addMessage('assistant', "👋 Привет! Я GPT-помощник для создания ТЗ на бота.\n\nРасскажи, для какого бизнеса создаем бота?");
+                this.showQuickOptions([
+                    "🛒 Интернет-магазин", 
+                    "🎓 Образование", 
+                    "🔧 Услуги", 
+                    "🏠 Недвижимость", 
+                    "💼 Другое"
+                ]);
+            }
+            
+            addMessage(type, text, delay = 0) {
+                setTimeout(() => {
+                    const messagesContainer = document.getElementById('gptMessages');
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `gpt-message ${type}`;
+                    messageDiv.textContent = text;
+                    messagesContainer.appendChild(messageDiv);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, delay);
+            }
+            
+            showTyping() {
+                const messagesContainer = document.getElementById('gptMessages');
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'gpt-typing';
+                typingDiv.id = 'typingIndicator';
+                typingDiv.innerHTML = `
+                    🤖 Обрабатываю ответ...
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                `;
+                messagesContainer.appendChild(typingDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            hideTyping() {
+                const typingDiv = document.getElementById('typingIndicator');
+                if (typingDiv) {
+                    typingDiv.remove();
+                }
+            }
+            
+            showQuickOptions(options) {
+                const buttonsContainer = document.getElementById('gptButtons');
+                buttonsContainer.innerHTML = '';
+                
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.className = 'gpt-option';
+                    button.textContent = option;
+                    button.addEventListener('click', () => this.handleOptionClick(option));
+                    buttonsContainer.appendChild(button);
+                });
+            }
+            
+            handleOptionClick(option) {
+                this.handleInput(option);
+                // Очищаем кнопки после выбора
+                document.getElementById('gptButtons').innerHTML = '';
+            }
+            
+            async handleInput(input) {
+                if (!input.trim()) return;
+                
+                this.addMessage('user', input);
+                this.showTyping();
+                
+                try {
+                    const response = await this.callOpenAI(input);
+                    this.hideTyping();
+                    this.addMessage('assistant', response);
+                    
+                    // Проверяем, нужно ли показать опции или кнопки
+                    this.analyzeResponseAndShowOptions(response, input);
+                    
+                } catch (error) {
+                    this.hideTyping();
+                    this.addMessage('assistant', "Извините, произошла ошибка. Попробуйте еще раз или опишите своими словами.");
+                }
+            }
+            
+            analyzeResponseAndShowOptions(response, userInput) {
+                const lowerResponse = response.toLowerCase();
+                const lowerInput = userInput.toLowerCase();
+                
+                // Умное определение контекста для показа опций
+                if (lowerResponse.includes('товар') || lowerResponse.includes('продае')) {
+                    this.showQuickOptions([
+                        "📱 Электроника", 
+                        "👕 Одежда", 
+                        "🍔 Еда/напитки", 
+                        "🏠 Дом/сад", 
+                        "💄 Красота"
+                    ]);
+                } else if (lowerResponse.includes('услуг') || lowerResponse.includes('запис')) {
+                    this.showQuickOptions([
+                        "💇 Салон красоты", 
+                        "🏥 Медицина", 
+                        "🔧 Ремонт", 
+                        "💼 Консультации", 
+                        "🚗 Автосервис"
+                    ]);
+                } else if (lowerResponse.includes('курс') || lowerResponse.includes('образован')) {
+                    this.showQuickOptions([
+                        "💻 IT-курсы", 
+                        "🎨 Творчество", 
+                        "🏫 Школа", 
+                        "📚 Университет", 
+                        "🧘 Тренинги"
+                    ]);
+                } else if (lowerResponse.includes('интеграц') || lowerResponse.includes('подключ')) {
+                    this.showQuickOptions([
+                        "✅ Да, нужна оплата", 
+                        "✅ Да, нужна CRM", 
+                        "✅ Да, нужна почта", 
+                        "❌ Пока не нужно"
+                    ]);
+                } else if (this.isReadyForSummary()) {
+                    // Если собрали достаточно информации - показываем кнопку генерации ТЗ
+                    setTimeout(() => {
+                        this.showFinalOptions();
+                    }, 1000);
+                }
+            }
+            
+            isReadyForSummary() {
+                // Проверяем, достаточно ли информации для создания ТЗ
+                const messageCount = this.conversationHistory.length;
+                const hasBusinessType = this.conversationHistory.some(msg => 
+                    msg.content && (
+                        msg.content.includes('магазин') || 
+                        msg.content.includes('образован') || 
+                        msg.content.includes('услуг')
+                    )
+                );
+                
+                return messageCount >= 8 && hasBusinessType;
+            }
+            
+            showFinalOptions() {
+                this.addMessage('assistant', "🎯 Отлично! У меня есть достаточно информации для создания ТЗ. Хотите добавить что-то еще или приступим к формированию документа?");
+                
+                this.showQuickOptions([
+                    "📋 Создать ТЗ сейчас",
+                    "💡 Добавить функции", 
+                    "🔄 Изменить требования"
+                ]);
+            }
+            
+            async generateSpecFromConversation() {
+                this.showTyping();
+                
+                try {
+                    // Запрос к GPT для создания структурированного ТЗ
+                    const summaryPrompt = `На основе нашего диалога создай структурированное техническое задание для Telegram-бота. 
+                    Верни ответ в формате JSON:
+                    {
+                        "title": "Название проекта",
+                        "business_type": "Тип бизнеса", 
+                        "main_tasks": ["Основная задача 1", "Основная задача 2"],
+                        "target_audience": "Целевая аудитория",
+                        "key_features": ["Функция 1", "Функция 2", "Функция 3"],
+                        "integrations": ["Интеграция 1", "Интеграция 2"],
+                        "ai_level": "Уровень ИИ"
+                    }`;
+                    
+                    const response = await this.callOpenAI(summaryPrompt);
+                    this.hideTyping();
+                    
+                    try {
+                        // Пытаемся распарсить JSON
+                        const spec = JSON.parse(response);
+                        this.currentSpec = spec;
+                        this.showGeneratedSpec(spec);
+                    } catch (e) {
+                        // Если не JSON, создаем ТЗ из текста
+                        this.createSpecFromText(response);
+                    }
+                    
+                } catch (error) {
+                    this.hideTyping();
+                    this.addMessage('assistant', "Создаю ТЗ на основе нашего диалога...");
+                    setTimeout(() => {
+                        this.createFallbackSpec();
+                    }, 1000);
+                }
+            }
+            
+            createSpecFromText(text) {
+                // Создаем ТЗ из текстового ответа GPT
+                this.currentSpec = {
+                    title: "Telegram-бот для вашего бизнеса",
+                    description: text,
+                    features: this.extractFeaturesFromConversation()
+                };
+                
+                this.showGeneratedSpec(this.currentSpec);
+            }
+            
+            createFallbackSpec() {
+                // Резервное создание ТЗ на основе диалога
+                const features = this.extractFeaturesFromConversation();
+                
+                this.currentSpec = {
+                    title: "Индивидуальный Telegram-бот",
+                    business_type: "По требованиям клиента",
+                    main_tasks: features.slice(0, 3),
+                    target_audience: "Клиенты компании",
+                    key_features: features,
+                    integrations: ["По требованию"],
+                    ai_level: "Адаптивный"
+                };
+                
+                this.showGeneratedSpec(this.currentSpec);
+            }
+            
+            extractFeaturesFromConversation() {
+                // Извлекаем функции из истории диалога
+                const features = [];
+                const conversation = this.conversationHistory.map(msg => msg.content).join(' ').toLowerCase();
+                
+                const featureMap = {
+                    'заказ': 'Прием и обработка заказов',
+                    'оплат': 'Онлайн-оплата',
+                    'каталог': 'Каталог товаров/услуг',
+                    'корзин': 'Корзина покупок',
+                    'запис': 'Система записи',
+                    'календар': 'Календарь и напоминания',
+                    'вопрос': 'База знаний FAQ',
+                    'поддержк': 'Техническая поддержка',
+                    'уведомлен': 'Push-уведомления',
+                    'аналитик': 'Аналитика и отчеты'
+                };
+                
+                for (let keyword in featureMap) {
+                    if (conversation.includes(keyword)) {
+                        features.push(featureMap[keyword]);
+                    }
+                }
+                
+                return features.length > 0 ? features : ['Автоматизация диалогов', 'Обработка запросов', 'Интеграция с системами'];
+            }
+            
+            showGeneratedSpec(spec) {
+                const messagesContainer = document.getElementById('gptMessages');
+                const specDiv = document.createElement('div');
+                specDiv.className = 'gpt-summary';
+                
+                specDiv.innerHTML = `
+                    <h4>📋 ${spec.title || 'Техническое задание'}</h4>
+                    ${spec.business_type ? `<p><strong>Тип бизнеса:</strong> ${spec.business_type}</p>` : ''}
+                    ${spec.target_audience ? `<p><strong>Целевая аудитория:</strong> ${spec.target_audience}</p>` : ''}
+                    ${spec.ai_level ? `<p><strong>Уровень ИИ:</strong> ${spec.ai_level}</p>` : ''}
+                    
+                    ${spec.main_tasks && spec.main_tasks.length > 0 ? `
+                        <p><strong>Основные задачи:</strong></p>
+                        <ul>
+                            ${spec.main_tasks.map(task => `<li>${task}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                    
+                    ${spec.key_features && spec.key_features.length > 0 ? `
+                        <p><strong>Ключевые функции:</strong></p>
+                        <ul>
+                            ${spec.key_features.map(feature => `<li>${feature}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                    
+                    ${spec.integrations && spec.integrations.length > 0 && spec.integrations[0] !== 'По требованию' ? `
+                        <p><strong>Интеграции:</strong></p>
+                        <ul>
+                            ${spec.integrations.map(integration => `<li>${integration}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                    
+                    ${spec.description ? `<p><strong>Описание:</strong> ${spec.description}</p>` : ''}
+                `;
+                
+                messagesContainer.appendChild(specDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // Показываем финальные опции
+                setTimeout(() => {
+                    this.showFinalButtons();
+                }, 1000);
+            }
+            
+            showFinalButtons() {
+                this.addMessage('assistant', "💡 Хотите добавить дополнительные функции или сразу создать PDF с заказом?");
+                
+                this.showQuickOptions([
+                    "📊 Добавить аналитику",
+                    "💳 Добавить оплату", 
+                    "🔔 Добавить уведомления",
+                    "📄 Создать PDF заказ"
+                ]);
+            }
+            
+            async handleFinalChoice(choice) {
+                if (choice.includes('PDF') || choice.includes('заказ')) {
+                    await this.generatePDF();
+                } else {
+                    // Добавляем функцию
+                    const feature = this.getFeatureFromChoice(choice);
+                    this.currentSpec.key_features.push(feature);
+                    
+                    this.addMessage('user', choice);
+                    this.addMessage('assistant', `✅ Добавил "${feature}" в ваш проект!`);
+                    
+                    setTimeout(() => {
+                        this.showFinalButtons();
+                    }, 1000);
+                }
+            }
+            
+            getFeatureFromChoice(choice) {
+                const featureMap = {
+                    'аналитик': 'Детальная аналитика и отчеты',
+                    'оплат': 'Интеграция с платежными системами',
+                    'уведомлен': 'Push-уведомления и рассылки',
+                    'многоязыч': 'Поддержка нескольких языков',
+                    'голос': 'Обработка голосовых сообщений'
+                };
+                
+                for (let key in featureMap) {
+                    if (choice.toLowerCase().includes(key)) {
+                        return featureMap[key];
+                    }
+                }
+                
+                return 'Дополнительная функция';
+            }
+            
+            async generatePDF() {
+                document.getElementById('gptButtons').innerHTML = '';
+                this.addMessage('assistant', "📄 Создаю PDF-документ с техническим заданием...");
+                
+                this.showTyping();
+                
+                setTimeout(() => {
+                    this.hideTyping();
+                    this.createPDFDocument();
+                }, 2000);
+            }
+            
+            createPDFDocument() {
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    
+                    // Настройка документа
+                    doc.setFont("helvetica");
+                    
+                    // Заголовок с градиентом (имитация)
+                    doc.setFontSize(24);
+                    doc.setTextColor(0, 136, 204);
+                    doc.text("ТЕХНИЧЕСКОЕ ЗАДАНИЕ", 20, 30);
+                    
+                    // Подзаголовок
+                    doc.setFontSize(18);
+                    doc.setTextColor(34, 34, 34);
+                    doc.text(`${this.currentSpec.title || 'Telegram-бот для бизнеса'}`, 20, 45);
+                    
+                    // Декоративная линия
+                    doc.setDrawColor(0, 194, 255);
+                    doc.setLineWidth(3);
+                    doc.line(20, 50, 190, 50);
+                    
+                    let yPos = 65;
+                    
+                    // Основная информация
+                    if (this.currentSpec.business_type) {
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 136, 204);
+                        doc.text("ТИП БИЗНЕСА:", 20, yPos);
+                        yPos += 8;
+                        
+                        doc.setFontSize(12);
+                        doc.setTextColor(34, 34, 34);
+                        doc.text(this.currentSpec.business_type, 20, yPos);
+                        yPos += 15;
+                    }
+                    
+                    if (this.currentSpec.target_audience) {
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 136, 204);
+                        doc.text("ЦЕЛЕВАЯ АУДИТОРИЯ:", 20, yPos);
+                        yPos += 8;
+                        
+                        doc.setFontSize(12);
+                        doc.setTextColor(34, 34, 34);
+                        doc.text(this.currentSpec.target_audience, 20, yPos);
+                        yPos += 15;
+                    }
+                    
+                    // Основные задачи
+                    if (this.currentSpec.main_tasks && this.currentSpec.main_tasks.length > 0) {
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 136, 204);
+                        doc.text("ОСНОВНЫЕ ЗАДАЧИ:", 20, yPos);
+                        yPos += 10;
+                        
+                        doc.setFontSize(12);
+                        doc.setTextColor(34, 34, 34);
+                        this.currentSpec.main_tasks.forEach((task, index) => {
+                            const taskText = `${index + 1}. ${task}`;
+                            const lines = doc.splitTextToSize(taskText, 170);
+                            doc.text(lines, 20, yPos);
+                            yPos += lines.length * 6;
+                        });
+                        yPos += 10;
+                    }
+                    
+                    // Ключевые функции
+                    if (this.currentSpec.key_features && this.currentSpec.key_features.length > 0) {
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 136, 204);
+                        doc.text("ФУНКЦИОНАЛЬНЫЕ ТРЕБОВАНИЯ:", 20, yPos);
+                        yPos += 10;
+                        
+                        doc.setFontSize(12);
+                        doc.setTextColor(34, 34, 34);
+                        this.currentSpec.key_features.forEach((feature, index) => {
+                            const featureText = `• ${feature}`;
+                            const lines = doc.splitTextToSize(featureText, 170);
+                            doc.text(lines, 20, yPos);
+                            yPos += lines.length * 6;
+                            
+                            if (yPos > 270) {
+                                doc.addPage();
+                                yPos = 20;
+                            }
+                        });
+                        yPos += 10;
+                    }
+                    
+                    // Интеграции
+                    if (this.currentSpec.integrations && this.currentSpec.integrations.length > 0 && this.currentSpec.integrations[0] !== 'По требованию') {
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 136, 204);
+                        doc.text("НЕОБХОДИМЫЕ ИНТЕГРАЦИИ:", 20, yPos);
+                        yPos += 10;
+                        
+                        doc.setFontSize(12);
+                        doc.setTextColor(34, 34, 34);
+                        this.currentSpec.integrations.forEach((integration, index) => {
+                            doc.text(`• ${integration}`, 20, yPos);
+                            yPos += 8;
+                        });
+                        yPos += 10;
+                    }
+                    
+                    // Уровень ИИ
+                    if (this.currentSpec.ai_level) {
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 136, 204);
+                        doc.text("УРОВЕНЬ ИСКУССТВЕННОГО ИНТЕЛЛЕКТА:", 20, yPos);
+                        yPos += 8;
+                        
+                        doc.setFontSize(12);
+                        doc.setTextColor(34, 34, 34);
+                        doc.text(this.currentSpec.ai_level, 20, yPos);
+                        yPos += 20;
+                    }
+                    
+                    // Футер
+                    if (yPos > 260) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.setDrawColor(0, 194, 255);
+                    doc.setLineWidth(1);
+                    doc.line(20, yPos, 190, yPos);
+                    yPos += 15;
+                    
+                    doc.setFontSize(14);
+                    doc.setTextColor(0, 136, 204);
+                    doc.text("КОНТАКТНАЯ ИНФОРМАЦИЯ:", 20, yPos);
+                    yPos += 12;
+                    
+                    doc.setFontSize(12);
+                    doc.setTextColor(34, 34, 34);
+                    doc.text("📧 Email: hello@создать-бота.рф", 20, yPos);
+                    yPos += 8;
+                    doc.text("💬 Telegram: @создать_бота", 20, yPos);
+                    yPos += 8;
+                    doc.text("🌐 Сайт: https://создать-бота.рф", 20, yPos);
+                    yPos += 8;
+                    doc.text("📞 Телефон: +7 (XXX) XXX-XX-XX", 20, yPos);
+                    
+                    // Время создания
+                    doc.setFontSize(10);
+                    doc.setTextColor(102, 102, 102);
+                    doc.text(
+                        `Создано: ${new Date().toLocaleString('ru-RU')} | GPT-Помощник v2.0 | Создать Бота © 2024`, 
+                        20, 
+                        285
+                    );
+                    
+                    // Сохранение
+                    const fileName = `ТЗ_TelegramBot_${Date.now()}.pdf`;
+                    doc.save(fileName);
+                    
+                    // Показать успех
+                    this.showSuccessMessage(fileName);
+                    
+                } catch (error) {
+                    console.error('PDF Creation Error:', error);
+                    this.showErrorMessage();
+                }
+            }
+            
+            showSuccessMessage(fileName) {
+                const messagesContainer = document.getElementById('gptMessages');
+                const successDiv = document.createElement('div');
+                successDiv.className = 'gpt-summary';
+                successDiv.style.background = 'linear-gradient(135deg, rgba(0, 200, 81, 0.1), rgba(0, 194, 255, 0.1))';
+                successDiv.style.borderColor = '#00C851';
+                
+                successDiv.innerHTML = `
+                    <h4 style="color: #00C851;">🎉 PDF создан успешно!</h4>
+                    <p><strong>Файл:</strong> ${fileName}</p>
+                    <p><strong>Что дальше?</strong></p>
+                    <ul>
+                        <li>Изучим ваше ТЗ (15 минут)</li>
+                        <li>Рассчитаем точную стоимость</li>
+                        <li>Свяжемся в течение 2 часов</li>
+                        <li>Обсудим детали и начнем работу</li>
+                    </ul>
+                    <button class="generate-pdf-btn" onclick="window.scrollTo({top: document.getElementById('contact').offsetTop, behavior: 'smooth'}); gptAssistant.closeChat();" style="background: #00C851;">
+                        🚀 Обсудить проект
+                    </button>
+                `;
+                
+                messagesContainer.appendChild(successDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            showErrorMessage() {
+                this.addMessage('assistant', '❌ Произошла ошибка при создании PDF. Не переживайте - вся информация сохранена! Свяжитесь с нами, и мы вышлем готовое ТЗ на email.');
+            }
+
+        }
+        
+        // Инициализация GPT Assistant
+        let gptAssistant;
+        document.addEventListener('DOMContentLoaded', () => {
+            gptAssistant = new GPTAssistant();
+            
+            // Показать предупреждение разработчику
+            console.warn(`
+            🔒 ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ БЕЗОПАСНОСТИ:
+            
+            Данный код содержит прямое обращение к OpenAI API из браузера.
+            В ПРОДАКШЕНЕ это НЕБЕЗОПАСНО!
+            
+            Для production необходимо:
+            1. Создать backend API endpoint
+            2. Хранить OpenAI API ключ на сервере
+            3. Проксировать запросы через ваш сервер
+            4. Добавить rate limiting и валидацию
+            
+            Пример серверного endpoint:
+            POST /api/openai-proxy
+            {
+                "message": "текст пользователя",
+                "conversation": [...история]
+            }
+            
+            🔒 НЕ ПУБЛИКУЙТЕ API КЛЮЧИ В FRONTEND КОДЕ!
+            `);
+        });
+
+        // Обработчик кликов по кнопкам GPT
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('gpt-option')) {
+                const choice = e.target.textContent;
+                
+                if (choice.includes('PDF') || choice.includes('заказ') || choice.includes('Создать ТЗ')) {
+                    if (gptAssistant.currentSpec && Object.keys(gptAssistant.currentSpec).length > 0) {
+                        gptAssistant.generatePDF();
+                    } else {
+                        gptAssistant.generateSpecFromConversation();
+                    }
+                } else if (choice.includes('Добавить') || choice.includes('аналитик') || choice.includes('оплат') || choice.includes('уведомлен')) {
+                    gptAssistant.handleFinalChoice(choice);
+                }
+            }
+        });
+
+        /* 
+        🔧 СЕРВЕРНАЯ ЧАСТЬ ДЛЯ PRODUCTION (Node.js/Express):
+        
+        const express = require('express');
+        const axios = require('axios');
+        const { HttpsProxyAgent } = require('https-proxy-agent');
+        
+        const app = express();
+        app.use(express.json());
+        
+        // Безопасное хранение конфигурации
+        const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+        const PROXY_CONFIG = {
+            host: '141.98.187.117',
+            port: '8000',
+            auth: {
+                username: 'qr4NBX',
+                password: 'mFmLGN'
+            }
+        };
+        
+        app.post('/api/openai-proxy', async (req, res) => {
+            try {
+                const { messages, model = 'gpt-4o-mini' } = req.body;
+                
+                // Создаем прокси-агент
+                const proxyAgent = new HttpsProxyAgent(
+                    `http://${PROXY_CONFIG.auth.username}:${PROXY_CONFIG.auth.password}@${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`
+                );
+                
+                // Запрос к OpenAI через прокси
+                const response = await axios.post(
+                    'https://api.openai.com/v1/chat/completions',
+                    {
+                        model: model,
+                        messages: messages,
+                        max_tokens: 300,
+                        temperature: 0.7
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        httpsAgent: proxyAgent,
+                        timeout: 30000
+                    }
+                );
+                
+                res.json(response.data);
+                
+            } catch (error) {
+                console.error('OpenAI API Error:', error.message);
+                res.status(500).json({ 
+                    error: 'Internal server error',
+                    fallback: true 
+                });
+            }
+        });
+        
+        app.listen(3000, () => {
+            console.log('🚀 GPT Proxy Server running on port 3000');
+        });
+        */
+    </script>
+
+    <!-- Schema.org structured data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Создать Бота",
+        "description": "Создай умного Telegram-бота за 1 день. Автоматизация общения, продаж и аналитики с ИИ",
+        "url": "https://создать-бота.рф",
+        "logo": "https://создать-бота.рф/logo.png",
+        "slogan": "Создай умного Telegram-бота за 1 день",
+        "foundingDate": "2024",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+7-XXX-XXX-XX-XX",
+            "contactType": "customer service",
+            "availableLanguage": "Russian"
+        },
+        "sameAs": [
+            "https://t.me/создать_бота"
+        ],
+        "offers": [
+            {
+                "@type": "Offer",
+                "name": "Чат-бот с меню",
+                "description": "Telegram-бот с логикой и кнопками",
+                "price": "7900",
+                "priceCurrency": "RUB"
+            },
+            {
+                "@type": "Offer",
+                "name": "GPT-интеграция",
+                "description": "Интеграция с OpenAI и другими ИИ",
+                "price": "15000",
+                "priceCurrency": "RUB"
+            },
+            {
+                "@type": "Offer",
+                "name": "WebApp мини-приложение",
+                "description": "Интерфейс внутри Telegram",
+                "price": "25000",
+                "priceCurrency": "RUB"
+            }
+        ]
+    }
+    </script>
+</body>
+</html>
