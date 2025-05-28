@@ -1012,6 +1012,45 @@
                 text-align: center;
             }
         }
+        
+    
+        /* Анимация записи голоса */
+        @keyframes recording-pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 20px rgba(255, 68, 68, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
+            }
+        }
+        
+        /* Стиль для кнопки записи */
+        #voiceButton.recording {
+            animation: recording-pulse 1.5s infinite;
+        }
+        
+        /* Анимация появления */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Улучшенные стили сообщений */
+        .gpt-message strong {
+            color: var(--primary-blue);
+        }
+        
+        /* ===== КОНЕЦ НОВЫХ СТИЛЕЙ ===== */
+        
     </style>
 </head>
 <body>
@@ -1438,27 +1477,15 @@
                 this.conversationHistory = [];
                 
                 // API Configuration (В продакшене эти данные должны быть на сервере!)
+                // Конфигурация для работы через сервер
                 this.apiConfig = {
-                    endpoint: 'https://api.openai.com/v1/chat/completions',
-                    model: 'gpt-4o-mini',
-                    proxy: {
-                        host: '141.98.187.117',
-                        port: '8000',
-                        username: 'qr4NBX',
-                        password: 'mFmLGN'
-                    }
+                    endpoint: '/api/gpt-assistant',
+                    voiceEndpoint: '/api/voice-message',
+                    specEndpoint: '/api/generate-specification'
                 };
                 
-                this.systemPrompt = `Ты - умный помощник для создания технических заданий на Telegram-ботов. 
-                Твоя задача:
-                1. Задавать умные наводящие вопросы о бизнесе клиента
-                2. Понимать потребности и формулировать четкие требования  
-                3. Предлагать дополнительные полезные функции
-                4. Говорить по-русски, дружелюбно но профессионально
-                5. Быть кратким - максимум 2-3 предложения
-                
-                Сейчас ты собираешь информацию для создания ТЗ на Telegram-бота.`;
-                
+                this.isFormulationMode = false;
+
                 this.init();
             }
             
@@ -1484,10 +1511,6 @@
             async initializeConversation() {
                 this.conversationHistory = [
                     {
-                        role: "system",
-                        content: this.systemPrompt
-                    },
-                    {
                         role: "assistant", 
                         content: "Привет! 👋 Я GPT-помощник для создания ТЗ на бота. Расскажи, для какого бизнеса создаем бота?"
                     }
@@ -1496,57 +1519,15 @@
             
             async callOpenAI(userMessage) {
                 try {
-                    // В продакшене этот запрос должен идти через ваш backend!
-                    const messages = [
-                        ...this.conversationHistory,
-                        { role: "user", content: userMessage }
-                    ];
-                    
-                    // Прокси-запрос (В реальном проекте делается на сервере)
-                    const response = await this.makeProxiedRequest({
-                        model: this.apiConfig.model,
-                        messages: messages,
-                        max_tokens: 300,
-                        temperature: 0.7,
-                        stream: false
-                    });
-                    
-                    if (response.choices && response.choices[0]) {
-                        const assistantMessage = response.choices[0].message.content;
-                        
-                        // Добавляем в историю
-                        this.conversationHistory.push(
-                            { role: "user", content: userMessage },
-                            { role: "assistant", content: assistantMessage }
-                        );
-                        
-                        return assistantMessage;
-                    }
-                    
-                    throw new Error('Нет ответа от API');
-                    
-                } catch (error) {
-                    console.error('OpenAI API Error:', error);
-                    return this.getFallbackResponse(userMessage);
-                }
-            }
-            
-            async makeProxiedRequest(payload) {
-                // ВАЖНО: В продакшене это должно быть реализовано на вашем сервере!
-                // Этот код только для демонстрации структуры
-                
-                try {
-                    // Симуляция прокси-запроса
-                    const proxyUrl = `/api/openai-proxy`; // Ваш endpoint
-                    
-                    const response = await fetch(proxyUrl, {
+                    const response = await fetch(this.apiConfig.endpoint, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            payload: payload,
-                            proxy: this.apiConfig.proxy
+                            message: userMessage,
+                            conversation: this.conversationHistory,
+                            sessionId: this.sessionId
                         })
                     });
                     
@@ -1554,11 +1535,20 @@
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
-                    return await response.json();
+                    const data = await response.json();
                     
+                    if (data.success && data.message) {
+                        return data.message;
+                    } else if (data.quickTask) {
+                        // Обработка быстрого ответа
+                        this.currentTask = data.quickTask;
+                        return data.message;
+                    } else {
+                        throw new Error(data.error || 'Нет ответа от сервера');
+                    }
                 } catch (error) {
-                    // Fallback к прямому запросу (только для демо)
-                    return this.simulateAPIResponse(payload);
+                    console.error('Ошибка вызова API:', error);
+                    return this.getFallbackResponse(userMessage);
                 }
             }
             
@@ -1630,13 +1620,21 @@
             }
             
             startConversation() {
-                this.addMessage('assistant', "👋 Привет! Я GPT-помощник для создания ТЗ на бота.\n\nРасскажи, для какого бизнеса создаем бота?");
+                this.addMessage('assistant', 
+                    '👋 Привет! Я помогу создать идеального Telegram-бота для вашего бизнеса.\n\n' +
+                    '🎯 У меня есть два способа работы:\n\n' +
+                    '1️⃣ **Быстрый старт** - выберите готовое решение для вашей ниши\n' +
+                    '2️⃣ **Индивидуальный подход** - опишите задачу своими словами\n\n' +
+                    'Как вам удобнее?'
+                );
+                
                 this.showQuickOptions([
-                    "🛒 Интернет-магазин", 
-                    "🎓 Образование", 
-                    "🔧 Услуги", 
-                    "🏠 Недвижимость", 
-                    "💼 Другое"
+                    '🛒 Интернет-магазин',
+                    '📅 Запись на услуги',
+                    '🚚 Доставка',
+                    '🎓 Обучение',
+                    '💬 Консультации',
+                    '🤔 Нужна помощь с формулировкой'
                 ]);
             }
             
@@ -1689,28 +1687,106 @@
             }
             
             handleOptionClick(option) {
-                this.handleInput(option);
-                // Очищаем кнопки после выбора
                 document.getElementById('gptButtons').innerHTML = '';
+                
+                if (option.includes('Нужна помощь с формулировкой')) {
+                    this.startCustomFormulation();
+                } else if (option.includes('Оформить заказ')) {
+                    this.processOrder();
+                } else if (option.includes('Добавить функции')) {
+                    this.showAdditionalFeatures();
+                } else if (option.includes('Другая задача')) {
+                    this.resetConversation();
+                } else {
+                    this.handleInput(option);
+                }
+            }
+
+            // Упрощенный метод для помощи с формулировкой
+            startCustomFormulation() {
+                this.addMessage('user', '🤔 Нужна помощь с формулировкой');
+                
+                // Устанавливаем специальный режим
+                this.isFormulationMode = true;
+                
+                // НЕ показываем быстрые кнопки - даем полную свободу
+                document.getElementById('gptButtons').innerHTML = '';
+                
+                // Фокус на поле ввода
+                setTimeout(() => {
+                    document.getElementById('gptInput').focus();
+                }, 100);
+                
+                // Отправляем на сервер с пометкой о режиме
+                this.handleInput('FORMULATION_MODE_START');
             }
             
             async handleInput(input) {
                 if (!input.trim()) return;
                 
-                this.addMessage('user', input);
+                // Для режима формулировки всё идет на сервер
+                if (this.isFormulationMode && input !== 'FORMULATION_MODE_START') {
+                    this.addMessage('user', input);
+                }
+                
+                // Быстрый анализ ТОЛЬКО для стандартных кнопок
+                if (!this.isFormulationMode && input.length < 30) {
+                    const quickMatch = this.quickAnalyze(input);
+                    if (quickMatch) {
+                        const template = this.quickTemplates[quickMatch];
+                        
+                        this.addMessage('user', input);
+                        this.showTyping();
+                        
+                        // Мгновенный предварительный ответ
+                        setTimeout(() => {
+                            this.hideTyping();
+                            this.addMessage('assistant', 
+                                `🎯 Отлично! Я понял - вам нужен: **${template.title}**\n\n` +
+                                `${template.preview}\n\n` +
+                                `⏳ Загружаю детальное решение с расчетом стоимости...`
+                            );
+                            
+                            // Запрос полных данных с сервера
+                            this.loadFullSolution(input);
+                        }, 500);
+                        
+                        return;
+                    }
+                }
+                
+                // Всё остальное - на сервер
                 this.showTyping();
                 
                 try {
-                    const response = await this.callOpenAI(input);
-                    this.hideTyping();
-                    this.addMessage('assistant', response);
+                    const response = await fetch(this.apiConfig.endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: input,
+                            conversation: this.conversationHistory,
+                            sessionId: this.sessionId || 'default',
+                            mode: this.isFormulationMode ? 'formulation' : 'normal'
+                        })
+                    });
                     
-                    // Проверяем, нужно ли показать опции или кнопки
-                    this.analyzeResponseAndShowOptions(response, input);
+                    const data = await response.json();
+                    this.hideTyping();
+                    
+                    if (data.message) {
+                        this.addMessage('assistant', data.message);
+                    }
+                    
+                    if (data.quickReplies) {
+                        this.showQuickOptions(data.quickReplies);
+                    }
                     
                 } catch (error) {
+                    console.error('API Error:', error);
                     this.hideTyping();
-                    this.addMessage('assistant', "Извините, произошла ошибка. Попробуйте еще раз или опишите своими словами.");
+                    this.addMessage('assistant', 'Произошла ошибка. Попробуйте еще раз.');
                 }
             }
             
@@ -2177,7 +2253,371 @@
             }
 
         }
-        
+            
+            
+            // Добавляем новые методы в прототип
+            GPTAssistant.prototype.quickTemplates = {
+                'магазин': {
+                    title: 'E-commerce бот для интернет-магазина',
+                    preview: '🛒 Каталог, корзина, оплата + ИИ-рекомендации'
+                },
+                'запись': {
+                    title: 'Умная система записи на услуги',
+                    preview: '📅 Календарь, напоминания + аналитика загрузки'
+                },
+                'доставк': {
+                    title: 'Интеллектуальная служба доставки',
+                    preview: '🚚 Трекинг, маршрутизация + программа лояльности'
+                },
+                'обучен': {
+                    title: 'AI-powered образовательная платформа',
+                    preview: '🎓 Персональный ИИ-наставник + геймификация'
+                },
+                'консульт': {
+                    title: 'ИИ-консультант нового поколения',
+                    preview: '💬 GPT-4, квалификация лидов + мультиканальность'
+                }
+            };
+            
+            // Метод быстрого анализа на клиенте
+            GPTAssistant.prototype.quickAnalyze = function(input) {
+                const lowerInput = input.toLowerCase();
+                
+                for (let key in this.quickTemplates) {
+                    if (lowerInput.includes(key)) {
+                        return key;
+                    }
+                }
+                
+                const patterns = {
+                    'магазин': /продаж|товар|покуп|корзин|shop|store/i,
+                    'запись': /запис|брон|расписан|время|слот|услуг/i,
+                    'доставк': /доставк|курьер|привез|отправ|еда/i,
+                    'обучен': /курс|урок|студент|учен|школ/i,
+                    'консульт': /консульт|поддержк|вопрос|помощ/i
+                };
+                
+                for (let key in patterns) {
+                    if (patterns[key].test(lowerInput)) {
+                        return key;
+                    }
+                }
+                
+                return null;
+            };
+            
+            // Сохраняем оригинальный handleInput
+            const originalHandleInput = GPTAssistant.prototype.handleInput;
+            
+            // Заменяем на улучшенную версию
+            GPTAssistant.prototype.handleInput = async function(input) {
+                if (!input.trim()) return;
+                
+                // Быстрый анализ для коротких фраз
+                if (input.length < 30) {
+                    const quickMatch = this.quickAnalyze(input);
+                    if (quickMatch) {
+                        const template = this.quickTemplates[quickMatch];
+                        
+                        this.addMessage('user', input);
+                        this.showTyping();
+                        
+                        // Мгновенный предварительный ответ
+                        setTimeout(() => {
+                            this.hideTyping();
+                            this.addMessage('assistant', 
+                                `🎯 Отлично! Я понял - вам нужен: **${template.title}**\n\n` +
+                                `${template.preview}\n\n` +
+                                `⏳ Загружаю детальное решение с расчетом стоимости...`
+                            );
+                            
+                            // Запрос полных данных с сервера
+                            this.loadFullSolution(input);
+                        }, 500);
+                        
+                        return;
+                    }
+                }
+                
+                // Если не подошел быстрый анализ, используем оригинальный метод
+                originalHandleInput.call(this, input);
+            };
+            
+            // Новый метод загрузки полного решения
+            GPTAssistant.prototype.loadFullSolution = async function(input) {
+                this.showTyping();
+                
+                try {
+                    const response = await fetch(this.apiConfig.endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: input,
+                            conversation: this.conversationHistory,
+                            sessionId: 'session_' + Date.now()
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    this.hideTyping();
+                    
+                    if (data.quickTask) {
+                        this.showTaskSummary(data.quickTask);
+                        this.showBusinessFeatures(data.businessFeatures);
+                        
+                        this.addMessage('assistant', 
+                            '💡 Это базовое решение. Выше я добавил уникальные фишки для роста вашего бизнеса!\n\n' +
+                            'Что делаем дальше?'
+                        );
+                        
+                        this.showQuickOptions(data.quickReplies || [
+                            '✅ Оформить заказ',
+                            '➕ Добавить функции',
+                            '💬 Задать вопрос'
+                        ]);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.hideTyping();
+                    this.addMessage('assistant', 'Произошла ошибка. Попробуйте еще раз.');
+                }
+            };
+            
+            // Метод показа задачи
+            GPTAssistant.prototype.showTaskSummary = function(task) {
+                if (!task) return;
+                
+                const messagesContainer = document.getElementById('gptMessages');
+                const taskDiv = document.createElement('div');
+                taskDiv.style.cssText = `
+                    background: linear-gradient(135deg, rgba(0, 194, 255, 0.05), rgba(132, 240, 245, 0.05));
+                    border: 2px solid rgba(0, 136, 204, 0.2);
+                    padding: 1.25rem;
+                    border-radius: 16px;
+                    margin: 1rem 0;
+                    animation: fadeInUp 0.5s ease;
+                `;
+                
+                taskDiv.innerHTML = `
+                    <h4 style="color: #0088CC; margin-bottom: 0.75rem;">📋 ${task.title}</h4>
+                    <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+                        <div>💰 <strong>Стоимость:</strong> ${task.estimatedPrice}</div>
+                        <div>⏱️ <strong>Срок:</strong> ${task.estimatedTime}</div>
+                    </div>
+                    <p style="margin-bottom: 0.75rem;"><strong>Что будет в боте:</strong></p>
+                    <ul style="list-style: none; padding: 0;">
+                        ${task.features.map(feature => `
+                            <li style="padding: 0.5rem 0;">✓ ${feature}</li>
+                        `).join('')}
+                    </ul>
+                `;
+                
+                messagesContainer.appendChild(taskDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            };
+            
+            // Метод показа бизнес-фишек
+            GPTAssistant.prototype.showBusinessFeatures = function(features) {
+                if (!features || features.length === 0) return;
+                
+                const messagesContainer = document.getElementById('gptMessages');
+                const featuresDiv = document.createElement('div');
+                featuresDiv.style.cssText = `
+                    background: linear-gradient(135deg, rgba(0, 200, 81, 0.05), rgba(0, 194, 255, 0.05));
+                    border: 2px solid rgba(0, 200, 81, 0.2);
+                    padding: 1.25rem;
+                    border-radius: 16px;
+                    margin: 1rem 0;
+                    animation: fadeInUp 0.5s ease 0.2s both;
+                `;
+                
+                featuresDiv.innerHTML = `
+                    <h4 style="color: #00C851; margin-bottom: 0.75rem;">
+                        🚀 Дополнительные фишки для роста вашего бизнеса:
+                    </h4>
+                    ${features.map(feature => `
+                        <div style="padding: 0.75rem; margin: 0.5rem 0; background: rgba(255,255,255,0.8); 
+                                    border-radius: 12px; border-left: 4px solid #00C851;">
+                            <h5 style="margin-bottom: 0.25rem;">${feature.title}</h5>
+                            <p style="color: #666; font-size: 0.875rem; margin: 0;">
+                                ${feature.description}
+                            </p>
+                        </div>
+                    `).join('')}
+                `;
+                
+                messagesContainer.appendChild(featuresDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            };
+            
+            // Добавляем поддержку голоса
+            GPTAssistant.prototype.addVoiceSupport = function() {
+                const inputArea = document.querySelector('.gpt-input-area');
+                if (!inputArea || document.getElementById('voiceButton')) return;
+                
+                const input = document.getElementById('gptInput');
+                
+                // Создаем обертку
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'display: flex; gap: 0.5rem; align-items: center;';
+                
+                // Перемещаем input в обертку
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+                
+                // Создаем кнопку голоса
+                const voiceButton = document.createElement('button');
+                voiceButton.id = 'voiceButton';
+                voiceButton.innerHTML = '🎤';
+                voiceButton.title = 'Записать голосовое сообщение';
+                voiceButton.style.cssText = `
+                    width: 45px;
+                    height: 45px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #00C2FF, #0088CC);
+                    border: none;
+                    color: white;
+                    cursor: pointer;
+                    font-size: 1.2rem;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                
+                // Проверка поддержки
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    voiceButton.addEventListener('click', () => this.toggleVoiceRecording());
+                } else {
+                    voiceButton.style.opacity = '0.5';
+                    voiceButton.disabled = true;
+                    voiceButton.title = 'Голосовой ввод не поддерживается';
+                }
+                
+                wrapper.appendChild(voiceButton);
+            };
+            
+            // Метод записи голоса
+            GPTAssistant.prototype.toggleVoiceRecording = async function() {
+                if (!this.isRecording) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        this.startRecording(stream);
+                    } catch (error) {
+                        alert('Не удалось получить доступ к микрофону. Проверьте разрешения.');
+                    }
+                } else {
+                    this.stopRecording();
+                }
+            };
+            
+            GPTAssistant.prototype.startRecording = function(stream) {
+                this.mediaRecorder = new MediaRecorder(stream);
+                this.audioChunks = [];
+                this.isRecording = true;
+                
+                const voiceButton = document.getElementById('voiceButton');
+                voiceButton.style.background = 'linear-gradient(135deg, #ff4444, #ff6666)';
+                voiceButton.innerHTML = '⏹️';
+                
+                this.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.audioChunks.push(event.data);
+                    }
+                };
+                
+                this.mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                    await this.processVoiceMessage(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                this.mediaRecorder.start();
+                
+                // Показываем индикатор записи
+                this.addMessage('assistant', '🔴 Записываю... Говорите! Нажмите ⏹️ чтобы остановить.');
+            };
+            
+            GPTAssistant.prototype.stopRecording = function() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.isRecording = false;
+                    this.mediaRecorder.stop();
+                    
+                    const voiceButton = document.getElementById('voiceButton');
+                    voiceButton.style.background = 'linear-gradient(135deg, #00C2FF, #0088CC)';
+                    voiceButton.innerHTML = '🎤';
+                }
+            };
+            
+            GPTAssistant.prototype.processVoiceMessage = async function(audioBlob) {
+                this.addMessage('user', '🎤 Голосовое сообщение');
+                this.showTyping();
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'voice.webm');
+                    formData.append('sessionId', 'session_' + Date.now());
+                    
+                    const response = await fetch('/api/voice-message', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    this.hideTyping();
+                    
+                    if (data.transcription) {
+                        this.addMessage('assistant', `📝 Распознано: "${data.transcription}"`);
+                        
+                        if (data.quickTask) {
+                            this.showTaskSummary(data.quickTask);
+                            this.showBusinessFeatures(data.businessFeatures);
+                        }
+                        
+                        if (data.message) {
+                            this.addMessage('assistant', data.message);
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('Voice error:', error);
+                    this.hideTyping();
+                    this.addMessage('assistant', 'Не удалось обработать голосовое сообщение. Попробуйте написать текстом.');
+                }
+            };
+            
+            // Обновляем метод инициализации
+            const originalInit = GPTAssistant.prototype.init;
+            GPTAssistant.prototype.init = function() {
+                // Вызываем оригинальный init
+                originalInit.call(this);
+                
+                // Добавляем голосовую поддержку
+                setTimeout(() => {
+                    this.addVoiceSupport();
+                }, 1000);
+                
+                // Обновляем приветствие
+                setTimeout(() => {
+                    this.addMessage('assistant', 
+                        '⚡ Обновление! Теперь я работаю в 10 раз быстрее!\n\n' +
+                        'Просто скажите 2-3 слова о вашем бизнесе, и я мгновенно покажу готовое решение.\n\n' +
+                        '🎤 Можете записать голосом или выбрать ниже:'
+                    );
+                    
+                    this.showQuickOptions([
+                        '🛒 Магазин',
+                        '📅 Запись',
+                        '🚚 Доставка',
+                        '🎓 Обучение',
+                        '💬 Консультации'
+                    ]);
+                }, 1500);
+            };
+
         // Инициализация GPT Assistant
         let gptAssistant;
         document.addEventListener('DOMContentLoaded', () => {
