@@ -118,17 +118,24 @@ const OPENAI_CONFIG = {
     endpoint: 'https://api.openai.com/v1/chat/completions'
 };
 
+// Конфигурация прокси из переменных окружения
 const PROXY_CONFIG = {
-    host: '141.98.187.117',
-    port: '8000',
-    username: 'qr4NBX',
-    password: 'mFmLGN'
+    host: process.env.PROXY_HOST || '141.98.187.117',
+    port: process.env.PROXY_PORT || '8000',
+    username: process.env.PROXY_USERNAME || 'qr4NBX',
+    password: process.env.PROXY_PASSWORD || 'mFmLGN'
 };
 
 // Создание прокси-агента
-const proxyAgent = new HttpsProxyAgent(
-    `http://${PROXY_CONFIG.username}:${PROXY_CONFIG.password}@${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`
-);
+let proxyAgent = null;
+if (PROXY_CONFIG.host && PROXY_CONFIG.port && PROXY_CONFIG.username && PROXY_CONFIG.password) {
+    proxyAgent = new HttpsProxyAgent(
+        `http://${PROXY_CONFIG.username}:${PROXY_CONFIG.password}@${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`
+    );
+    console.log(`🔗 Прокси настроен: ${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`);
+} else {
+    console.warn('⚠️  Прокси не настроен - используется прямое подключение');
+}
 
 // Улучшенный системный промпт
 const ENHANCED_SYSTEM_PROMPT = `Ты - старший технический консультант компании "Создать Бота" с 10-летним опытом.
@@ -241,6 +248,21 @@ app.post('/api/gpt-assistant', async (req, res) => {
         console.log('🧠 Отправляем запрос к OpenAI...');
 
         // Запрос к OpenAI через прокси
+        const axiosConfig = {
+            headers: {
+                'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+                'Content-Type': 'application/json',
+                'User-Agent': 'CreateBot-Assistant/2.0'
+            },
+            timeout: 30000
+        };
+
+        // Добавляем прокси только если он настроен
+        if (proxyAgent) {
+            axiosConfig.httpsAgent = proxyAgent;
+            console.log('🔗 Используется прокси для запроса к OpenAI');
+        }
+
         const response = await axios.post(
             OPENAI_CONFIG.endpoint,
             {
@@ -251,15 +273,7 @@ app.post('/api/gpt-assistant', async (req, res) => {
                 presence_penalty: 0.1,
                 frequency_penalty: 0.1
             },
-            {
-                headers: {
-                    'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'CreateBot-Assistant/2.0'
-                },
-                httpsAgent: proxyAgent,
-                timeout: 30000
-            }
+            axiosConfig
         );
 
         console.log('✅ Ответ от OpenAI получен');
@@ -452,6 +466,20 @@ app.post('/api/generate-specification', async (req, res) => {
 
 Отвечай ТОЛЬКО JSON, без дополнительного текста.`;
 
+        const axiosConfigSpec = {
+            headers: {
+                'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000
+        };
+
+        // Добавляем прокси только если он настроен
+        if (proxyAgent) {
+            axiosConfigSpec.httpsAgent = proxyAgent;
+            console.log('🔗 Используется прокси для создания ТЗ');
+        }
+
         const response = await axios.post(
             OPENAI_CONFIG.endpoint,
             {
@@ -463,14 +491,7 @@ app.post('/api/generate-specification', async (req, res) => {
                 max_tokens: 500,
                 temperature: 0.3
             },
-            {
-                headers: {
-                    'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                httpsAgent: proxyAgent,
-                timeout: 30000
-            }
+            axiosConfigSpec
         );
 
         const specText = response.data.choices[0]?.message?.content;
@@ -579,7 +600,8 @@ app.get('/api/health', (req, res) => {
             mongodb: !!mongoose.connection.readyState,
             telegram: !!bot,
             cache: cache.getStats(),
-            encryption: !!process.env.ENCRYPTION_KEY
+            encryption: !!process.env.ENCRYPTION_KEY,
+            proxy: !!proxyAgent ? `${PROXY_CONFIG.host}:${PROXY_CONFIG.port}` : 'disabled'
         }
     });
 });
