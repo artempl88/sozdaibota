@@ -836,8 +836,47 @@ app.post('/api/gpt-assistant', async (req, res) => {
             return handleFormulationMode(req, res);
         }
 
-        // УБИРАЕМ БЫСТРЫЕ ШАБЛОНЫ - ВСЕГДА СЧИТАЕМ ПО РЕАЛЬНЫМ РАСЦЕНКАМ
-        // Теперь всегда используем точный расчет по PRICING_SYSTEM
+        // Проверяем, можем ли дать мгновенный ответ
+        const quickTask = analyzeQuickTask(message);
+        
+        if (quickTask) {
+            console.log('⚡ Найден быстрый шаблон:', quickTask.title);
+            
+            // Сохраняем в базу если есть MongoDB
+            if (sessionId && Conversation) {
+                try {
+                    await Conversation.findOneAndUpdate(
+                        { sessionId },
+                        {
+                            $push: {
+                                messages: { 
+                                    role: 'user', 
+                                    content: message 
+                                }
+                            },
+                            quickTask: quickTask
+                        },
+                        { upsert: true }
+                    );
+                } catch (dbError) {
+                    console.error('DB Error:', dbError);
+                }
+            }
+            
+            // Возвращаем мгновенный ответ
+            return res.json({
+                success: true,
+                message: generateQuickResponse(quickTask),
+                quickTask: quickTask,
+                businessFeatures: quickTask.businessValue,
+                quickReplies: [
+                    '✅ Оформить заказ',
+                    '➕ Добавить функции',
+                    '💬 Уточнить детали',
+                    '🔄 Другая задача'
+                ]
+            });
+        }
 
         // Валидация входных данных
         if (!message || typeof message !== 'string') {
@@ -1548,50 +1587,26 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
         // НОВАЯ ФУНКЦИОНАЛЬНОСТЬ: Отправляем распознанный текст в GPT API
         console.log('🧠 Отправляем распознанный текст в OpenAI GPT...');
         
-        // УБИРАЕМ БЫСТРЫЕ ШАБЛОНЫ ДЛЯ ГОЛОСА - ВСЕГДА СЧИТАЕМ ПО РЕАЛЬНЫМ РАСЦЕНКАМ
-        // Если клиент описывает бизнес - сразу делаем расчет
-        const businessKeywords = /магазин|монтаж|сервис|салон|доставк|автосервис|шиномонтаж|цветочн|кафе|ресторан|такси|клиник|школ|курс/i;
+        // Проверяем, можем ли дать мгновенный ответ
+        const quickTask = analyzeQuickTask(transcription);
         
-        if (businessKeywords.test(transcription) || parsedConversation.length >= 1) {
-            console.log('💰 Анализируем потребности и рассчитываем по PRICING_SYSTEM...');
+        if (quickTask) {
+            console.log('⚡ Найден быстрый шаблон для голосового ввода:', quickTask.title);
             
-            try {
-                const allMessages = [...parsedConversation, { role: 'user', content: transcription }];
-                const fullText = allMessages.map(m => m.content).join(' ');
-                
-                const estimate = await calculateProjectEstimate(fullText, parsedConversation);
-                
-                await sendEstimateToTelegram(estimate, sessionId);
-                
-                if (sessionId && Conversation) {
-                    await Conversation.findOneAndUpdate(
-                        { sessionId },
-                        { 
-                            estimate: estimate,
-                            estimatedAt: new Date()
-                        }
-                    );
-                }
-                
-                console.log('✅ Смета рассчитана по реальным расценкам:', estimate.totalCost, 'руб.');
-                
-                return res.json({
-                    success: true,
-                    transcription: transcription,
-                    message: formatEstimateMessage(estimate),
-                    estimate: estimate,
-                    isVoiceInput: true,
-                    quickReplies: [
-                        '📞 Обсудить детали',
-                        '✏️ Добавить функции', 
-                        '✅ Утвердить смету',
-                        '📄 Получить в PDF'
-                    ]
-                });
-                
-            } catch (estimateError) {
-                console.error('❌ Ошибка расчета сметы:', estimateError.message);
-            }
+            return res.json({
+                success: true,
+                transcription: transcription,
+                message: generateQuickResponse(quickTask),
+                quickTask: quickTask,
+                businessFeatures: quickTask.businessValue,
+                isVoiceInput: true,
+                quickReplies: [
+                    '✅ Оформить заказ',
+                    '➕ Добавить функции',
+                    '💬 Уточнить детали',
+                    '🔄 Другая задача'
+                ]
+            });
         }
         
         // ПРОВЕРЯЕМ НУЖНО ЛИ РАССЧИТАТЬ СТОИМОСТЬ ПО ГОЛОСОВОМУ ЗАПРОСУ
