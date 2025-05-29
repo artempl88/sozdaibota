@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: data: mediastream:; object-src 'none';">
+    <meta http-equiv="Permissions-Policy" content="microphone=(self), camera=(self)">
+    <title>Тест распознавания речи</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        .stop-btn {
+            background: #f44336;
+            color: white;
+        }
+        .test-btn {
+            background: #2196F3;
+            color: white;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Тест распознавания речи</h1>
+        
+        <div class="voice-controls">
+            <button id="testSupportBtn" class="test-btn">Проверить поддержку</button>
+            <button id="startBtn" class="start-btn" disabled>🎤 Начать запись</button>
+            <button id="stopBtn" class="stop-btn" disabled>⏹️ Остановить</button>
+        </div>
+        
+        <div id="status" class="status info">
+            Нажмите "Проверить поддержку" для начала
+        </div>
+        
+        <div class="log" id="log">
+            <strong>Лог событий:</strong><br>
+            Готов к тестированию...
+        </div>
+    </div>
+
+    <script>
+        class VoiceTester {
+            constructor() {
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                
+                this.testSupportBtn = document.getElementById('testSupportBtn');
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.status = document.getElementById('status');
+                this.log = document.getElementById('log');
+                
+                this.initEventListeners();
+            }
+            
+            initEventListeners() {
+                this.testSupportBtn.addEventListener('click', () => this.testSupport());
+                this.startBtn.addEventListener('click', () => this.startRecording());
+                this.stopBtn.addEventListener('click', () => this.stopRecording());
+            }
+            
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `${timestamp}: ${message}`;
+                
+                this.log.innerHTML += `<br>${logEntry}`;
+                this.log.scrollTop = this.log.scrollHeight;
+                
+                console.log(`[VoiceTester] ${logEntry}`);
+            }
+            
+            setStatus(message, type = 'info') {
+                this.status.textContent = message;
+                this.status.className = `status ${type}`;
+            }
+            
+            async testSupport() {
+                this.log('Проверяю поддержку браузера...');
+                
+                try {
+                    // Проверяем наличие API
+                    if (!navigator.mediaDevices) {
+                        throw new Error('navigator.mediaDevices не поддерживается');
+                    }
+                    
+                    if (!navigator.mediaDevices.getUserMedia) {
+                        throw new Error('getUserMedia не поддерживается');
+                    }
+                    
+                    if (!window.MediaRecorder) {
+                        throw new Error('MediaRecorder не поддерживается');
+                    }
+                    
+                    this.log('✅ Все API поддерживаются');
+                    
+                    // Проверяем доступность микрофона
+                    this.log('Проверяю доступность микрофона...');
+                    
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const audioInputs = devices.filter(device => device.kind === 'audioinput');
+                    
+                    this.log(`Найдено аудио устройств: ${audioInputs.length}`);
+                    audioInputs.forEach((device, index) => {
+                        this.log(`  ${index + 1}. ${device.label || 'Неизвестное устройство'}`);
+                    });
+                    
+                    if (audioInputs.length === 0) {
+                        throw new Error('Не найдено аудио устройств');
+                    }
+                    
+                    // Пытаемся получить доступ к микрофону
+                    this.log('Запрашиваю разрешение на микрофон...');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    
+                    this.log('✅ Разрешение получено!');
+                    this.log(`Аудио треки: ${stream.getAudioTracks().length}`);
+                    
+                    stream.getAudioTracks().forEach((track, index) => {
+                        this.log(`  Трек ${index + 1}: ${track.label}, enabled: ${track.enabled}`);
+                    });
+                    
+                    // Сразу закрываем поток
+                    stream.getTracks().forEach(track => track.stop());
+                    this.log('Тестовый поток закрыт');
+                    
+                    this.setStatus('✅ Все проверки пройдены! Можно начинать запись.', 'success');
+                    this.startBtn.disabled = false;
+                    this.testSupportBtn.textContent = '✅ Поддержка OK';
+                    this.testSupportBtn.disabled = true;
+                    
+                } catch (error) {
+                    this.log(`❌ Ошибка: ${error.message}`, 'error');
+                    
+                    let helpMessage = '';
+                    if (error.name === 'NotAllowedError') {
+                        helpMessage = 'Разрешите доступ к микрофону в настройках браузера';
+                    } else if (error.name === 'NotFoundError') {
+                        helpMessage = 'Подключите микрофон к компьютеру';
+                    } else if (error.name === 'NotReadableError') {
+                        helpMessage = 'Микрофон занят другим приложением';
+                    }
+                    
+                    this.setStatus(`❌ ${error.message}. ${helpMessage}`, 'error');
+                }
+            }
+            
+            async startRecording() {
+                try {
+                    this.log('Начинаю запись...');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    
+                    this.mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+                    });
+                    
+                    this.audioChunks = [];
+                    this.isRecording = true;
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                            this.log(`Получен аудио чанк: ${event.data.size} байт`);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.log('Запись остановлена');
+                        this.processAudio();
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    this.mediaRecorder.onerror = (event) => {
+                        this.log(`Ошибка записи: ${event.error}`, 'error');
+                    };
+                    
+                    this.mediaRecorder.start(1000); // Сохраняем каждую секунду
+                    
+                    this.setStatus('🔴 Идет запись... Говорите!', 'info');
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+                    this.log('Запись началась');
+                    
+                } catch (error) {
+                    this.log(`Ошибка начала записи: ${error.message}`, 'error');
+                    this.setStatus(`❌ ${error.message}`, 'error');
+                }
+            }
+            
+            stopRecording() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    this.startBtn.disabled = false;
+                    this.stopBtn.disabled = true;
+                    this.setStatus('⏹️ Остановлено. Обрабатываю аудио...', 'info');
+                }
+            }
+            
+            processAudio() {
+                if (this.audioChunks.length === 0) {
+                    this.log('Нет аудио данных для обработки', 'error');
+                    this.setStatus('❌ Не удалось записать аудио', 'error');
+                    return;
+                }
+                
+                const audioBlob = new Blob(this.audioChunks, { 
+                    type: this.mediaRecorder.mimeType || 'audio/webm' 
+                });
+                
+                this.log(`Создан аудио файл: ${audioBlob.size} байт, тип: ${audioBlob.type}`);
+                
+                // Создаем ссылку для скачивания
+                const url = URL.createObjectURL(audioBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `voice-test-${Date.now()}.webm`;
+                a.textContent = 'Скачать записанный файл';
+                a.style.display = 'block';
+                a.style.marginTop = '10px';
+                
+                this.log.appendChild(a);
+                
+                this.setStatus('✅ Аудио файл создан! Проверьте лог для скачивания.', 'success');
+                this.log('Тест завершен успешно!');
+                
+                // Можем попробовать отправить на сервер
+                this.sendToServer(audioBlob);
+            }
+            
+            async sendToServer(audioBlob) {
+                try {
+                    this.log('Отправляю аудио на сервер...');
+                    
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'voice-test.webm');
+                    formData.append('sessionId', 'voice-test-' + Date.now());
+                    
+                    const response = await fetch('/api/voice-message', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.log('✅ Ответ сервера получен');
+                        this.log(`Распознанный текст: "${data.transcription || 'не распознано'}"`);
+                        
+                        if (data.message) {
+                            this.log(`Ответ GPT: ${data.message}`);
+                        }
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                } catch (error) {
+                    this.log(`Ошибка отправки на сервер: ${error.message}`, 'error');
+                    this.log('Это нормально если сервер не запущен');
+                }
+            }
+        }
+        
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            new VoiceTester();
+        });
+    </script>
+</body>
+</html> 

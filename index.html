@@ -13,6 +13,13 @@
     <title>Создать Бота - Умные Telegram боты с ИИ за 1 день | От 7900₽</title>
     <link rel="canonical" href="https://создать-бота.рф">
     
+    <!-- SVG Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230088CC'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='18' font-family='Arial'>🤖</text></svg>">
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==">
+    
+    <!-- Permissions Policy для микрофона -->
+    <meta http-equiv="Permissions-Policy" content="microphone=(self), camera=(self), geolocation=(), fullscreen=(self)">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -1030,6 +1037,19 @@
             flex-shrink: 0;
             flex-grow: 0;
         }
+        
+        #sendButton {
+            background: linear-gradient(135deg, #00C2FF, #0088CC);
+        }
+        
+        #voiceButton {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+        
+        #voiceButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         #sendButton:hover {
             transform: translateY(-2px);
@@ -1255,6 +1275,43 @@
             padding: 0.5rem;
             opacity: 0;
             animation: fadeIn 0.3s ease forwards;
+        }
+
+        /* Voice Button Styles - добавляем в CSS раздел */
+        #voiceButton {
+            width: 45px;
+            height: 45px;
+            min-width: 45px;
+            min-height: 45px;
+            max-width: 45px;
+            max-height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c757d, #495057);
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        #voiceButton.recording {
+            background: linear-gradient(135deg, #ff4444, #ff6666) !important;
+            animation: pulse 2s infinite;
+        }
+        
+        #voiceButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #sendButton.active {
+            background: linear-gradient(135deg, #00C851, #007E33) !important;
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -1514,7 +1571,10 @@
                 <!-- Messages will be added here -->
             </div>
             <div class="gpt-input-area">
-                <input type="text" class="gpt-input" id="gptInput" placeholder="Напишите ваш ответ...">
+                <div class="input-wrapper" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="text" class="gpt-input" id="gptInput" placeholder="Напишите ваш ответ..." style="flex: 1;">
+                    <button id="sendButton" title="Отправить сообщение">📤</button>
+                </div>
                 <div class="gpt-buttons" id="gptButtons">
                     <!-- Quick reply buttons will be added here -->
                 </div>
@@ -1698,14 +1758,35 @@
                 const toggle = document.getElementById('gptToggle');
                 const close = document.getElementById('gptClose');
                 const input = document.getElementById('gptInput');
+                const sendButton = document.getElementById('sendButton');
                 
                 toggle.addEventListener('click', () => this.toggleChat());
                 close.addEventListener('click', () => this.closeChat());
+                
+                // Обработчик Enter в поле ввода
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         this.handleInput(input.value);
                         input.value = '';
+                    }
+                });
+                
+                // Обработчик кнопки отправки
+                sendButton.addEventListener('click', () => {
+                    const inputValue = input.value.trim();
+                    if (inputValue) {
+                        this.handleInput(inputValue);
+                        input.value = '';
+                    }
+                });
+                
+                // Обработчик изменения input для активации кнопки отправки
+                input.addEventListener('input', () => {
+                    if (input.value.trim()) {
+                        sendButton.classList.add('active');
+                    } else {
+                        sendButton.classList.remove('active');
                     }
                 });
                 
@@ -2747,102 +2828,28 @@
                 const inputArea = document.querySelector('.gpt-input-area');
                 if (!inputArea || document.getElementById('voiceButton')) return;
                 
-                const input = document.getElementById('gptInput');
+                const wrapper = inputArea.querySelector('.input-wrapper');
+                if (!wrapper) return;
                 
-                // Создаем обертку
-                const wrapper = document.createElement('div');
-                wrapper.style.cssText = 'display: flex; gap: 0.5rem; align-items: center; flex-wrap: nowrap;';
+                const input = wrapper.querySelector('.gpt-input');
+                const sendButton = wrapper.querySelector('#sendButton');
                 
-                // Перемещаем input в обертку
-                input.parentNode.insertBefore(wrapper, input);
+                if (!input || !sendButton) return;
                 
-                // Создаем контейнер для input чтобы он занимал всё доступное место
-                const inputContainer = document.createElement('div');
-                inputContainer.style.cssText = 'flex: 1; min-width: 0;';
-                inputContainer.appendChild(input);
-                wrapper.appendChild(inputContainer);
-                
-                // Создаем кнопку отправки
-                const sendButton = document.createElement('button');
-                sendButton.id = 'sendButton';
-                sendButton.innerHTML = '📤';
-                sendButton.title = 'Отправить сообщение';
-                sendButton.style.cssText = `
-                    width: 45px;
-                    height: 45px;
-                    min-width: 45px;
-                    min-height: 45px;
-                    max-width: 45px;
-                    max-height: 45px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #00C2FF, #0088CC);
-                    border: none;
-                    color: white;
-                    cursor: pointer;
-                    font-size: 1.2rem;
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-                `;
-                
-                sendButton.addEventListener('click', () => {
-                    const inputValue = input.value.trim();
-                    if (inputValue) {
-                        this.handleInput(inputValue);
-                        input.value = '';
-                    }
-                });
-                
-                // Создаем кнопку голоса
+                // Создаем кнопку для голосового ввода
                 const voiceButton = document.createElement('button');
                 voiceButton.id = 'voiceButton';
                 voiceButton.innerHTML = '🎤';
                 voiceButton.title = 'Записать голосовое сообщение';
-                voiceButton.style.cssText = `
-                    width: 45px;
-                    height: 45px;
-                    min-width: 45px;
-                    min-height: 45px;
-                    max-width: 45px;
-                    max-height: 45px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #6c757d, #495057);
-                    border: none;
-                    color: white;
-                    cursor: pointer;
-                    font-size: 1.2rem;
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-                `;
                 
                 // Проверка поддержки
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     voiceButton.addEventListener('click', () => this.toggleVoiceRecording());
                 } else {
-                    voiceButton.style.opacity = '0.5';
                     voiceButton.disabled = true;
                     voiceButton.title = 'Голосовой ввод не поддерживается';
                 }
                 
-                // Добавляем обработчик изменения input для активации кнопки отправки
-                input.addEventListener('input', () => {
-                    if (input.value.trim()) {
-                        sendButton.style.background = 'linear-gradient(135deg, #00C851, #007E33)';
-                        sendButton.style.transform = 'scale(1.05)';
-                    } else {
-                        sendButton.style.background = 'linear-gradient(135deg, #00C2FF, #0088CC)';
-                        sendButton.style.transform = 'scale(1)';
-                    }
-                });
-                
-                wrapper.appendChild(sendButton);
                 wrapper.appendChild(voiceButton);
             };
             
@@ -2850,10 +2857,41 @@
             GPTAssistant.prototype.toggleVoiceRecording = async function() {
                 if (!this.isRecording) {
                     try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        // Проверяем поддержку браузера
+                        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                            this.addMessage('assistant', '❌ Ваш браузер не поддерживает распознавание речи. Попробуйте использовать Chrome или Edge.');
+                            return;
+                        }
+
+                        // Запрашиваем доступ к микрофону
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            }
+                        });
                         this.startRecording(stream);
                     } catch (error) {
-                        alert('Не удалось получить доступ к микрофону. Проверьте разрешения.');
+                        console.error('Microphone access error:', error);
+                        
+                        let errorMessage = '❌ Не удалось получить доступ к микрофону.\n\n';
+                        
+                        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                            errorMessage += '🔧 **Как исправить:**\n' +
+                                          '1. Нажмите на значок 🔒 в адресной строке\n' +
+                                          '2. Разрешите доступ к микрофону\n' +
+                                          '3. Обновите страницу\n\n' +
+                                          '💡 Или просто напишите текстом!';
+                        } else if (error.name === 'NotFoundError') {
+                            errorMessage += '🎤 Микрофон не найден. Проверьте подключение микрофона.';
+                        } else if (error.name === 'NotReadableError') {
+                            errorMessage += '⚠️ Микрофон занят другим приложением. Закройте другие программы, использующие микрофон.';
+                        } else {
+                            errorMessage += `Ошибка: ${error.message}\n\n💡 Попробуйте написать текстом!`;
+                        }
+                        
+                        this.addMessage('assistant', errorMessage);
                     }
                 } else {
                     this.stopRecording();
@@ -2866,9 +2904,8 @@
                 this.isRecording = true;
                 
                 const voiceButton = document.getElementById('voiceButton');
-                voiceButton.style.background = 'linear-gradient(135deg, #ff4444, #ff6666)';
-                voiceButton.innerHTML = '⏹️';
                 voiceButton.classList.add('recording');
+                voiceButton.innerHTML = '⏹️';
                 
                 this.mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) {
@@ -2894,9 +2931,8 @@
                     this.mediaRecorder.stop();
                     
                     const voiceButton = document.getElementById('voiceButton');
-                    voiceButton.style.background = 'linear-gradient(135deg, #6c757d, #495057)';
-                    voiceButton.innerHTML = '🎤';
                     voiceButton.classList.remove('recording');
+                    voiceButton.innerHTML = '🎤';
                 }
             };
             

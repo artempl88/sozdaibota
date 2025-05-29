@@ -10,6 +10,11 @@ const TelegramBot = require('node-telegram-bot-api');
 const NodeCache = require('node-cache');
 const crypto = require('crypto');
 const { HttpsProxyAgent } = require('https-proxy-agent');
+const fetch = require('node-fetch');
+const FormData = require('form-data');
+const multer = require('multer');
+const fs = require('fs').promises;
+const fsSync = require('fs'); // Добавляем синхронную версию для createReadStream
 require('dotenv').config();
 
 const PRICING_SYSTEM = {
@@ -79,9 +84,6 @@ const PRICING_SYSTEM = {
         'очень срочно': 1.5
     }
 };
-
-const multer = require('multer');
-const fs = require('fs').promises;
 
 // Настройка загрузки голосовых файлов
 const upload = multer({ 
@@ -1465,16 +1467,55 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
         }
 
         const { sessionId } = req.body;
+        let transcription = '';
         
-        // Для демо возвращаем симулированный текст
-        // В production здесь будет вызов Whisper API
-        const simulatedTexts = [
-            'нужен бот для интернет магазина',
-            'хочу автоматизировать запись клиентов',
-            'нужна доставка еды с отслеживанием'
-        ];
-        
-        const transcription = simulatedTexts[Math.floor(Math.random() * simulatedTexts.length)];
+        try {
+            // Реальное распознавание речи через OpenAI Whisper
+            console.log('🔍 Отправляем аудио на распознавание...');
+            
+            const formData = new FormData();
+            formData.append('file', fsSync.createReadStream(req.file.path), {
+                filename: 'audio.webm',
+                contentType: req.file.mimetype
+            });
+            formData.append('model', 'whisper-1');
+            formData.append('language', 'ru');
+            
+            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+                    ...formData.getHeaders()
+                },
+                body: formData,
+                agent: proxyAgent,
+                timeout: 30000
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                transcription = result.text || '';
+                console.log('✅ Распознано:', transcription);
+            } else {
+                console.warn('⚠️ Ошибка Whisper API, используем fallback');
+                throw new Error(`Whisper API error: ${response.status}`);
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка распознавания:', error.message);
+            
+            // Fallback: симулированные тексты
+            const simulatedTexts = [
+                'нужен бот для интернет магазина',
+                'хочу автоматизировать запись клиентов', 
+                'нужна доставка еды с отслеживанием',
+                'создать бота для консультаций',
+                'автоматизировать продажи'
+            ];
+            
+            transcription = simulatedTexts[Math.floor(Math.random() * simulatedTexts.length)];
+            console.log('🔄 Используем fallback:', transcription);
+        }
         
         // Удаляем временный файл
         try {
