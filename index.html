@@ -2945,6 +2945,11 @@
                     formData.append('audio', audioBlob, 'voice.webm');
                     formData.append('sessionId', this.sessionId || 'session_' + Date.now());
                     
+                    // Инициализируем conversation если не существует
+                    if (!this.conversation) {
+                        this.conversation = [];
+                    }
+                    
                     // Добавляем контекст разговора для GPT
                     if (this.conversation && this.conversation.length > 0) {
                         formData.append('conversation', JSON.stringify(this.conversation));
