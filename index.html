@@ -1011,9 +1011,13 @@
 
         /* Стили для кнопок отправки и голоса */
         #sendButton, #voiceButton {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
+            width: 45px !important;
+            height: 45px !important;
+            min-width: 45px !important;
+            min-height: 45px !important;
+            max-width: 45px !important;
+            max-height: 45px !important;
+            border-radius: 50% !important;
             border: none;
             color: white;
             cursor: pointer;
@@ -1023,6 +1027,8 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            flex-shrink: 0;
+            flex-grow: 0;
         }
 
         #sendButton:hover {
@@ -2745,11 +2751,16 @@
                 
                 // Создаем обертку
                 const wrapper = document.createElement('div');
-                wrapper.style.cssText = 'display: flex; gap: 0.5rem; align-items: center;';
+                wrapper.style.cssText = 'display: flex; gap: 0.5rem; align-items: center; flex-wrap: nowrap;';
                 
                 // Перемещаем input в обертку
                 input.parentNode.insertBefore(wrapper, input);
-                wrapper.appendChild(input);
+                
+                // Создаем контейнер для input чтобы он занимал всё доступное место
+                const inputContainer = document.createElement('div');
+                inputContainer.style.cssText = 'flex: 1; min-width: 0;';
+                inputContainer.appendChild(input);
+                wrapper.appendChild(inputContainer);
                 
                 // Создаем кнопку отправки
                 const sendButton = document.createElement('button');
@@ -2759,6 +2770,10 @@
                 sendButton.style.cssText = `
                     width: 45px;
                     height: 45px;
+                    min-width: 45px;
+                    min-height: 45px;
+                    max-width: 45px;
+                    max-height: 45px;
                     border-radius: 50%;
                     background: linear-gradient(135deg, #00C2FF, #0088CC);
                     border: none;
@@ -2769,6 +2784,8 @@
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    flex-shrink: 0;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
                 `;
                 
                 sendButton.addEventListener('click', () => {
@@ -2787,6 +2804,10 @@
                 voiceButton.style.cssText = `
                     width: 45px;
                     height: 45px;
+                    min-width: 45px;
+                    min-height: 45px;
+                    max-width: 45px;
+                    max-height: 45px;
                     border-radius: 50%;
                     background: linear-gradient(135deg, #6c757d, #495057);
                     border: none;
@@ -2797,6 +2818,8 @@
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    flex-shrink: 0;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
                 `;
                 
                 // Проверка поддержки
