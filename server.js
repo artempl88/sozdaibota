@@ -883,19 +883,19 @@ app.post('/api/gpt-assistant', async (req, res) => {
         const allMessages = [...conversation, { role: 'user', content: message }];
         const fullText = allMessages.map(m => m.content).join(' ');
         
-        // Улучшенные условия для расчета
+        // УБИРАЕМ АВТОМАТИЧЕСКИЙ РАСЧЕТ ПО КОЛИЧЕСТВУ СООБЩЕНИЙ
+        // Расчет только по явному запросу кнопки "Получить предложение"
         const shouldCalculate = 
-            conversation.length >= 8 || // После 8 сообщений (не 4)
-            message.toLowerCase().includes('достаточно информации') ||
+            message.toLowerCase().includes('получить предложение') ||
             message.toLowerCase().includes('рассчитайте смету') ||
             message.toLowerCase().includes('создайте смету') ||
             message.toLowerCase().includes('сколько будет стоить') ||
             message.toLowerCase().includes('какая цена') ||
             message.toLowerCase().includes('сколько стоит') ||
-            (parseRequirements(fullText).length >= 5 && conversation.length >= 6); // 5+ функций И 6+ сообщений
+            message.toLowerCase().includes('рассчитайте');
 
-        if (shouldCalculate) {
-            console.log('💰 Запускаем автоматический расчет сметы...');
+        if (shouldCalculate && conversation.length >= 2) {
+            console.log('💰 Запускаем расчет сметы по запросу клиента...');
             
             // Используем единую функцию расчета
             const estimate = await calculateProjectEstimate(fullText, conversation);
@@ -923,7 +923,7 @@ app.post('/api/gpt-assistant', async (req, res) => {
                 success: true,
                 message: formatEstimateMessage(estimate),
                 estimate: estimate,
-                quickReplies: ['📞 Позвоните мне', '✏️ Изменить требования', '💬 Задать вопрос']
+                quickReplies: ['📞 Обсудить детали', '✏️ Добавить функции', '✅ Утвердить смету', '📄 Получить в PDF']
             };
             
             // Кэшируем результат
