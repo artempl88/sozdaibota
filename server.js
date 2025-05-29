@@ -13,7 +13,8 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 require('dotenv').config();
 
 const PRICING_SYSTEM = {
-    hourlyRate: 4000,
+    hourlyRate: 3000,
+    minProjectCost: 15000, // Минимальная стоимость проекта
 
     // Базовое время на типовые компоненты (в часах)
     baseComponents: {
@@ -60,7 +61,7 @@ const PRICING_SYSTEM = {
         'натальная карта': 20,
         'расчет гороскопа': 16,
         'анализ совместимости': 12,
-        'обработка фото ладони': 24
+        'обработка изображений по фото': 24
     },
     
     // Коэффициенты сложности
@@ -381,7 +382,11 @@ const cache = new NodeCache({ stdTTL: 600 });
 // Инициализация Telegram бота
 let bot;
 if (process.env.TELEGRAM_BOT_TOKEN) {
-    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
+    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+    console.log('📱 Telegram бот запущен');
+    setupTelegramHandlers();
+} else {
+    console.log('⚠️ TELEGRAM_BOT_TOKEN не настроен');
 }
 
 // Подключение к MongoDB
@@ -389,6 +394,8 @@ if (process.env.MONGODB_URI) {
     mongoose.connect(process.env.MONGODB_URI)
         .then(() => console.log('✅ MongoDB подключена'))
         .catch(err => console.error('❌ Ошибка MongoDB:', err));
+} else {
+    console.log('⚠️ MONGODB_URI не настроен');
 }
 
 // Схемы MongoDB
@@ -413,6 +420,26 @@ const AnalyticsSchema = new mongoose.Schema({
 
 const Conversation = mongoose.model('Conversation', ConversationSchema);
 const Analytics = mongoose.model('Analytics', AnalyticsSchema);
+
+// ===== СХЕМА ДЛЯ СМЕТ =====
+const EstimateSchema = new mongoose.Schema({
+    sessionId: String,
+    projectName: String,
+    components: Array,
+    totalHours: Number,
+    totalCost: Number,
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+    },
+    clientInfo: Object,
+    detectedFeatures: Array,
+    timeline: String,
+    createdAt: { type: Date, default: Date.now }
+});
+
+const Estimate = mongoose.model('Estimate', EstimateSchema);
 
 // Безопасность с Helmet (настройки для разработки)
 app.use(helmet({
@@ -567,6 +594,215 @@ app.post('/api/analytics', async (req, res) => {
     }
 });
 
+// ===== ФУНКЦИИ АВТОМАТИЧЕСКОГО РАСЧЕТА СМЕТ =====
+
+// Парсинг требований из текста
+function parseRequirements(text) {
+    const lower = text.toLowerCase();
+    const detectedFeatures = [];
+    
+    // Проверяем каждую функцию
+    Object.keys(PRICING_SYSTEM.features).forEach(feature => {
+        // Простая проверка по ключевым словам
+        const keywords = feature.split(' ');
+        if (keywords.some(keyword => lower.includes(keyword))) {
+            detectedFeatures.push(feature);
+        }
+    });
+    
+    // Дополнительные паттерны для распознавания
+    const patterns = {
+        'каталог товаров': /каталог|товар|продукт|магазин|shop/i,
+        'корзина': /корзин|заказ|купить|cart/i,
+        'интеграция платежей': /платеж|оплат|payment|pay/i,
+        'календарь записи': /запис|календар|бронирован|appointment/i,
+        'интеграция GPT': /gpt|chatgpt|ai|искусственный интеллект|умный/i,
+        'рассылки': /рассылк|уведомлен|newsletter|notification/i,
+        'админ-панель': /админ|панель|управлен|admin/i
+    };
+    
+    Object.entries(patterns).forEach(([feature, pattern]) => {
+        if (pattern.test(text) && !detectedFeatures.includes(feature)) {
+            detectedFeatures.push(feature);
+        }
+    });
+    
+    return detectedFeatures;
+}
+
+// Автоматический расчет сметы
+async function autoCalculateEstimate(requirements, conversation) {
+    // Парсим функции
+    const detectedFeatures = parseRequirements(requirements);
+    
+    let totalHours = 0;
+    const components = [];
+    
+    // Добавляем базовые компоненты
+    Object.entries(PRICING_SYSTEM.baseComponents).forEach(([name, hours]) => {
+        totalHours += hours;
+        components.push({
+            name,
+            hours,
+            cost: hours * PRICING_SYSTEM.hourlyRate
+        });
+    });
+    
+    // Добавляем найденные функции
+    detectedFeatures.forEach(feature => {
+        const hours = PRICING_SYSTEM.features[feature];
+        if (hours) {
+            totalHours += hours;
+            components.push({
+                name: feature,
+                hours,
+                cost: hours * PRICING_SYSTEM.hourlyRate
+            });
+        }
+    });
+    
+    // Добавляем тестирование (20%)
+    const testingHours = Math.ceil(totalHours * 0.2);
+    components.push({
+        name: 'Тестирование и отладка',
+        hours: testingHours,
+        cost: testingHours * PRICING_SYSTEM.hourlyRate
+    });
+    totalHours += testingHours;
+    
+    // Считаем стоимость
+    let totalCost = totalHours * PRICING_SYSTEM.hourlyRate;
+    if (totalCost < PRICING_SYSTEM.minProjectCost) {
+        totalCost = PRICING_SYSTEM.minProjectCost;
+    }
+    
+    return {
+        projectName: 'Telegram-бот для бизнеса',
+        components,
+        totalHours,
+        totalCost,
+        detectedFeatures,
+        timeline: `${Math.ceil(totalHours / 40)} недель`
+    };
+}
+
+// Отправка сметы в Telegram
+async function sendEstimateToTelegram(estimate, sessionId) {
+    if (!bot || !process.env.ADMIN_CHAT_ID) {
+        console.log('⚠️ Telegram бот или ADMIN_CHAT_ID не настроены');
+        return;
+    }
+    
+    try {
+        // Сохраняем в БД
+        const saved = await Estimate.create({
+            sessionId,
+            ...estimate
+        });
+        
+        // Форматируем сообщение
+        const message = 
+            `📊 **НОВАЯ СМЕТА**\n\n` +
+            `🆔 ID: ${saved._id}\n` +
+            `💰 **ИТОГО: ${estimate.totalCost.toLocaleString('ru-RU')} ₽**\n` +
+            `⏱️ Время: ${estimate.totalHours} часов\n` +
+            `📅 Срок: ${estimate.timeline}\n\n` +
+            `📋 Найденные функции:\n` +
+            estimate.detectedFeatures.map(f => `• ${f}`).join('\n') + '\n\n' +
+            `💼 Компоненты:\n` +
+            estimate.components.slice(0, 5).map(c => `• ${c.name}: ${c.hours}ч`).join('\n');
+        
+        // Кнопки
+        const keyboard = {
+            inline_keyboard: [[
+                { text: '✅ Утвердить', callback_data: `approve:${saved._id}` },
+                { text: '❌ Отклонить', callback_data: `reject:${saved._id}` }
+            ]]
+        };
+        
+        await bot.sendMessage(
+            process.env.ADMIN_CHAT_ID,
+            message,
+            { 
+                parse_mode: 'Markdown',
+                reply_markup: keyboard
+            }
+        );
+        
+        console.log(`📊 Смета отправлена в Telegram: ${saved._id}`);
+        
+    } catch (error) {
+        console.error('Ошибка отправки в Telegram:', error);
+    }
+}
+
+// Обработчики Telegram
+function setupTelegramHandlers() {
+    if (!bot) return;
+    
+    bot.on('callback_query', async (query) => {
+        try {
+            const [action, estimateId] = query.data.split(':');
+            
+            if (action === 'approve') {
+                await Estimate.findByIdAndUpdate(estimateId, { status: 'approved' });
+                bot.answerCallbackQuery(query.id, { text: '✅ Смета утверждена!' });
+                
+                // Отправляем уведомление
+                bot.editMessageText(
+                    query.message.text + '\n\n✅ **СМЕТА УТВЕРЖДЕНА**',
+                    {
+                        chat_id: query.message.chat.id,
+                        message_id: query.message.message_id,
+                        parse_mode: 'Markdown'
+                    }
+                );
+                
+            } else if (action === 'reject') {
+                await Estimate.findByIdAndUpdate(estimateId, { status: 'rejected' });
+                bot.answerCallbackQuery(query.id, { text: '❌ Смета отклонена' });
+                
+                // Отправляем уведомление
+                bot.editMessageText(
+                    query.message.text + '\n\n❌ **СМЕТА ОТКЛОНЕНА**',
+                    {
+                        chat_id: query.message.chat.id,
+                        message_id: query.message.message_id,
+                        parse_mode: 'Markdown'
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('Ошибка обработки callback:', error);
+            bot.answerCallbackQuery(query.id, { text: 'Произошла ошибка' });
+        }
+    });
+    
+    // Команды для Telegram бота
+    bot.onText(/\/stats/, async (msg) => {
+        try {
+            const chatId = msg.chat.id;
+            
+            const total = await Estimate.countDocuments();
+            const approved = await Estimate.countDocuments({ status: 'approved' });
+            const pending = await Estimate.countDocuments({ status: 'pending' });
+            const rejected = await Estimate.countDocuments({ status: 'rejected' });
+            
+            const statsMessage = 
+                `📊 **СТАТИСТИКА СМЕТ**\n\n` +
+                `📋 Всего: ${total}\n` +
+                `✅ Утверждено: ${approved}\n` +
+                `⏳ В ожидании: ${pending}\n` +
+                `❌ Отклонено: ${rejected}\n\n` +
+                `💯 Конверсия: ${total > 0 ? (approved / total * 100).toFixed(1) : 0}%`;
+            
+            bot.sendMessage(chatId, statsMessage, { parse_mode: 'Markdown' });
+        } catch (error) {
+            console.error('Ошибка получения статистики:', error);
+        }
+    });
+}
+
 // Основной endpoint для GPT-помощника с кэшированием
 app.post('/api/gpt-assistant', async (req, res) => {
     try {
@@ -660,6 +896,66 @@ app.post('/api/gpt-assistant', async (req, res) => {
                 console.error('Ошибка сохранения в БД:', dbError);
             }
         }
+
+        // ===== НОВОЕ: Проверка на автоматический расчет =====
+        const allMessages = [...conversation, { role: 'user', content: message }];
+        const fullText = allMessages.map(m => m.content).join(' ');
+        
+        // Условия для расчета
+        const shouldCalculate = 
+            conversation.length >= 4 || // После 4 сообщений
+            message.toLowerCase().includes('достаточно') ||
+            message.toLowerCase().includes('рассчита') ||
+            message.toLowerCase().includes('смет') ||
+            message.toLowerCase().includes('сколько') ||
+            message.toLowerCase().includes('цена') ||
+            message.toLowerCase().includes('стоит') ||
+            parseRequirements(fullText).length >= 3; // Или 3+ функции найдено
+
+        if (shouldCalculate) {
+            console.log('💰 Запускаем автоматический расчет сметы...');
+            
+            // Делаем расчет
+            const estimate = await autoCalculateEstimate(fullText, conversation);
+            
+            // Отправляем в Telegram
+            await sendEstimateToTelegram(estimate, sessionId);
+            
+            // Сохраняем смету в базу
+            if (sessionId && Conversation) {
+                try {
+                    await Conversation.findOneAndUpdate(
+                        { sessionId },
+                        { 
+                            estimate: estimate,
+                            estimatedAt: new Date()
+                        }
+                    );
+                } catch (dbError) {
+                    console.error('Ошибка сохранения сметы:', dbError);
+                }
+            }
+            
+            // Отвечаем клиенту со сметой
+            const result = {
+                success: true,
+                message: 
+                    `✅ Отлично! Я проанализировал ваши требования:\n\n` +
+                    `💰 **Стоимость: ${estimate.totalCost.toLocaleString('ru-RU')} ₽**\n` +
+                    `⏱️ **Срок: ${estimate.timeline}**\n\n` +
+                    `📊 Детальная смета отправлена менеджеру.\n` +
+                    `📞 Вам позвонят в течение 30 минут для уточнения деталей.\n\n` +
+                    `🔍 **Найденные функции:**\n${estimate.detectedFeatures.map(f => `• ${f}`).join('\n')}`,
+                estimate: estimate,
+                quickReplies: ['📞 Позвоните мне', '✏️ Изменить требования', '💬 Задать вопрос']
+            };
+            
+            // Кэшируем результат
+            cache.set(messageHash, result);
+            
+            return res.json(result);
+        }
+        // ===== КОНЕЦ НОВОГО КОДА =====
 
         // Подготовка сообщений для OpenAI
         const messages = [
@@ -1228,6 +1524,55 @@ app.get('/api/health', (req, res) => {
             proxy: !!proxyAgent ? `${PROXY_CONFIG.host}:${PROXY_CONFIG.port}` : 'disabled'
         }
     });
+});
+
+// ===== ENDPOINT ДЛЯ СТАТИСТИКИ СМЕТ =====
+app.get('/api/estimates/stats', async (req, res) => {
+    try {
+        if (!Estimate) {
+            return res.json({
+                total: 0,
+                approved: 0,
+                pending: 0,
+                rejected: 0,
+                approvalRate: '0%'
+            });
+        }
+
+        const total = await Estimate.countDocuments();
+        const approved = await Estimate.countDocuments({ status: 'approved' });
+        const pending = await Estimate.countDocuments({ status: 'pending' });
+        const rejected = await Estimate.countDocuments({ status: 'rejected' });
+        
+        res.json({
+            total,
+            approved,
+            pending,
+            rejected,
+            approvalRate: total > 0 ? (approved / total * 100).toFixed(1) + '%' : '0%'
+        });
+    } catch (error) {
+        console.error('Ошибка получения статистики:', error);
+        res.status(500).json({ error: 'Ошибка получения статистики' });
+    }
+});
+
+// ===== ENDPOINT ДЛЯ ПОЛУЧЕНИЯ СПИСКА СМЕТ =====
+app.get('/api/estimates', async (req, res) => {
+    try {
+        if (!Estimate) {
+            return res.json([]);
+        }
+
+        const estimates = await Estimate.find()
+            .sort({ createdAt: -1 })
+            .limit(50);
+        
+        res.json(estimates);
+    } catch (error) {
+        console.error('Ошибка получения смет:', error);
+        res.status(500).json({ error: 'Ошибка получения смет' });
+    }
 });
 
 // Обработка ошибок
