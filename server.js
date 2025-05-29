@@ -179,6 +179,32 @@ const QUICK_TEMPLATES = {
         ],
         estimatedPrice: 'от 45,000₽',
         estimatedTime: '7-10 дней'
+    },
+    'автосервис': {
+        title: 'Умный бот для автосервиса и шиномонтажа',
+        features: [
+            'Онлайн-запись с выбором услуг и времени',
+            'Калькулятор стоимости работ и запчастей', 
+            'Уведомления о готовности автомобиля',
+            'История обслуживания и напоминания ТО',
+            'Интеграция с 1С и складским учетом'
+        ],
+        businessValue: [
+            {
+                title: '⏰ Экономия 6 часов в день',
+                description: 'Автоматическая запись клиентов без звонков'
+            },
+            {
+                title: '💰 Увеличение выручки на 40%',
+                description: 'Умные напоминания о ТО и дополнительных услугах'
+            },
+            {
+                title: '📊 Прозрачность процессов',
+                description: 'Клиенты видят статус работ в реальном времени'
+            }
+        ],
+        estimatedPrice: 'от 35,000₽',
+        estimatedTime: '5-7 дней'
     }
 };
 
@@ -1469,6 +1495,19 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
         const { sessionId, conversation = [] } = req.body;
         let transcription = '';
         
+        // Парсим conversation если это строка
+        let parsedConversation = [];
+        try {
+            if (typeof conversation === 'string') {
+                parsedConversation = JSON.parse(conversation);
+            } else if (Array.isArray(conversation)) {
+                parsedConversation = conversation;
+            }
+        } catch (parseError) {
+            console.warn('⚠️ Не удалось распарсить conversation:', parseError.message);
+            parsedConversation = [];
+        }
+        
         try {
             // Реальное распознавание речи через OpenAI Whisper
             console.log('🔍 Отправляем аудио на распознавание...');
@@ -1570,13 +1609,79 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
             });
         }
         
+        // ПРОВЕРЯЕМ НУЖНО ЛИ РАССЧИТАТЬ СТОИМОСТЬ ПО ГОЛОСОВОМУ ЗАПРОСУ
+        const needsEstimate = transcription.toLowerCase().includes('сколько') ||
+                             transcription.toLowerCase().includes('стоит') ||
+                             transcription.toLowerCase().includes('цена') ||
+                             transcription.toLowerCase().includes('стоимость') ||
+                             transcription.toLowerCase().includes('расчет') ||
+                             transcription.toLowerCase().includes('смета');
+        
+        if (needsEstimate && parsedConversation.length >= 2) {
+            console.log('💰 Запуск автоматического расчета стоимости по голосовому запросу...');
+            
+            try {
+                // Извлекаем все сообщения для анализа
+                const allMessages = [...parsedConversation, { role: 'user', content: transcription }];
+                const fullText = allMessages.map(m => m.content).join(' ');
+                
+                // Используем встроенную систему расчета
+                const estimate = await calculateProjectEstimate(fullText, parsedConversation);
+                
+                // Отправляем смету в Telegram админу
+                await sendEstimateToTelegram(estimate, sessionId);
+                
+                // Сохраняем смету в базу
+                if (sessionId && Conversation) {
+                    await Conversation.findOneAndUpdate(
+                        { sessionId },
+                        { 
+                            estimate: estimate,
+                            estimatedAt: new Date()
+                        }
+                    );
+                }
+                
+                console.log('✅ Смета рассчитана автоматически:', estimate.totalCost, 'руб.');
+                
+                return res.json({
+                    success: true,
+                    transcription: transcription,
+                    message: formatEstimateMessage(estimate),
+                    estimate: estimate,
+                    isVoiceInput: true,
+                    quickReplies: [
+                        '📞 Обсудить детали',
+                        '✏️ Изменить требования', 
+                        '✅ Утвердить смету',
+                        '📄 Получить в PDF'
+                    ]
+                });
+                
+            } catch (estimateError) {
+                console.error('❌ Ошибка расчета сметы:', estimateError.message);
+                // Продолжаем с обычным GPT ответом
+            }
+        }
+        
         try {
+            // Валидация и очистка сообщений для OpenAI
+            const validMessages = parsedConversation
+                .filter(msg => msg && msg.role && msg.content)
+                .slice(-8) // Берем только последние 8 сообщений
+                .map(msg => ({
+                    role: msg.role === 'assistant' ? 'assistant' : 'user',
+                    content: String(msg.content).trim().slice(0, 1000) // Обрезаем длинные сообщения
+                }));
+            
             // Подготовка сообщений для OpenAI
             const messages = [
                 { role: 'system', content: ENHANCED_SYSTEM_PROMPT },
-                ...conversation.slice(-10), // Берем последние 10 сообщений для контекста
+                ...validMessages,
                 { role: 'user', content: transcription }
             ];
+            
+            console.log('📝 Отправляем сообщений в GPT:', messages.length);
     
             // Запрос к OpenAI через прокси
             const axiosConfig = {
@@ -1649,6 +1754,13 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
             
         } catch (gptError) {
             console.error('❌ Ошибка GPT API для голосового ввода:', gptError.message);
+            
+            // Детальное логирование ошибки
+            if (gptError.response) {
+                console.error('🔍 Статус ошибки:', gptError.response.status);
+                console.error('🔍 Данные ошибки:', gptError.response.data);
+                console.error('🔍 Заголовки ошибки:', gptError.response.headers);
+            }
             
             // Fallback если GPT не работает
             res.json({
