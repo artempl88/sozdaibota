@@ -1226,6 +1226,20 @@ function generateQuickReplies(assistantMessage, userMessage) {
     const lowerMessage = assistantMessage.toLowerCase();
     const lowerUser = userMessage.toLowerCase();
 
+    // НОВАЯ ЛОГИКА: Если собрано достаточно информации - предлагаем расчет
+    if (lowerMessage.includes('какие функции') || 
+        lowerMessage.includes('что еще') ||
+        lowerMessage.includes('дополнительно') ||
+        lowerMessage.includes('интеграции') ||
+        (lowerMessage.includes('бот') && lowerMessage.includes('нужен'))) {
+        return [
+            "💰 Получить предложение",
+            "➕ Добавить функции",
+            "🔄 Изменить требования",
+            "❓ Задать вопрос"
+        ];
+    }
+
     if (lowerMessage.includes('бизнес') || lowerMessage.includes('компан')) {
         return [
             "🛒 Интернет-магазин",
@@ -1548,11 +1562,20 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
         // НОВАЯ ФУНКЦИОНАЛЬНОСТЬ: Отправляем распознанный текст в GPT API
         console.log('🧠 Отправляем распознанный текст в OpenAI GPT...');
         
-        // УБИРАЕМ БЫСТРЫЕ ШАБЛОНЫ ДЛЯ ГОЛОСА - ВСЕГДА СЧИТАЕМ ПО РЕАЛЬНЫМ РАСЦЕНКАМ
-        // Если клиент описывает бизнес - сразу делаем расчет
-        const businessKeywords = /магазин|монтаж|сервис|салон|доставк|автосервис|шиномонтаж|цветочн|кафе|ресторан|такси|клиник|школ|курс/i;
+        // УБИРАЕМ БЫСТРЫЕ ШАБЛОНЫ ДЛЯ ГОЛОСА - ТЕПЕРЬ СНАЧАЛА ДИАЛОГ, ПОТОМ РАСЧЕТ
         
-        if (businessKeywords.test(transcription) || parsedConversation.length >= 1) {
+        // УБИРАЕМ БЫСТРЫЕ ШАБЛОНЫ ДЛЯ ГОЛОСА - ТЕПЕРЬ СНАЧАЛА ДИАЛОГ, ПОТОМ РАСЧЕТ
+        // Проверяем запрос на получение предложения/расчета
+        const needsEstimate = transcription.toLowerCase().includes('получить предложение') ||
+                             transcription.toLowerCase().includes('рассчитайте') ||
+                             transcription.toLowerCase().includes('сколько') ||
+                             transcription.toLowerCase().includes('стоит') ||
+                             transcription.toLowerCase().includes('цена') ||
+                             transcription.toLowerCase().includes('стоимость') ||
+                             transcription.toLowerCase().includes('расчет') ||
+                             transcription.toLowerCase().includes('смета');
+        
+        if (needsEstimate && parsedConversation.length >= 2) {
             console.log('💰 Анализируем потребности и рассчитываем по PRICING_SYSTEM...');
             
             try {
@@ -1591,61 +1614,6 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
                 
             } catch (estimateError) {
                 console.error('❌ Ошибка расчета сметы:', estimateError.message);
-            }
-        }
-        
-        // ПРОВЕРЯЕМ НУЖНО ЛИ РАССЧИТАТЬ СТОИМОСТЬ ПО ГОЛОСОВОМУ ЗАПРОСУ
-        const needsEstimate = transcription.toLowerCase().includes('сколько') ||
-                             transcription.toLowerCase().includes('стоит') ||
-                             transcription.toLowerCase().includes('цена') ||
-                             transcription.toLowerCase().includes('стоимость') ||
-                             transcription.toLowerCase().includes('расчет') ||
-                             transcription.toLowerCase().includes('смета');
-        
-        if (needsEstimate && parsedConversation.length >= 2) {
-            console.log('💰 Запуск автоматического расчета стоимости по голосовому запросу...');
-            
-            try {
-                // Извлекаем все сообщения для анализа
-                const allMessages = [...parsedConversation, { role: 'user', content: transcription }];
-                const fullText = allMessages.map(m => m.content).join(' ');
-                
-                // Используем встроенную систему расчета
-                const estimate = await calculateProjectEstimate(fullText, parsedConversation);
-                
-                // Отправляем смету в Telegram админу
-                await sendEstimateToTelegram(estimate, sessionId);
-                
-                // Сохраняем смету в базу
-                if (sessionId && Conversation) {
-                    await Conversation.findOneAndUpdate(
-                        { sessionId },
-                        { 
-                            estimate: estimate,
-                            estimatedAt: new Date()
-                        }
-                    );
-                }
-                
-                console.log('✅ Смета рассчитана автоматически:', estimate.totalCost, 'руб.');
-                
-                return res.json({
-                    success: true,
-                    transcription: transcription,
-                    message: formatEstimateMessage(estimate),
-                    estimate: estimate,
-                    isVoiceInput: true,
-                    quickReplies: [
-                        '📞 Обсудить детали',
-                        '✏️ Изменить требования', 
-                        '✅ Утвердить смету',
-                        '📄 Получить в PDF'
-                    ]
-                });
-                
-            } catch (estimateError) {
-                console.error('❌ Ошибка расчета сметы:', estimateError.message);
-                // Продолжаем с обычным GPT ответом
             }
         }
         
