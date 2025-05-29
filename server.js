@@ -279,6 +279,9 @@ ${JSON.stringify(PRICING_SYSTEM.features, null, 2)}
 
         const estimate = JSON.parse(response.data.choices[0].message.content);
         
+        // Добавляем найденные функции если их нет
+        const detectedFeatures = parseRequirements(requirements);
+        
         // Расчет стоимости
         const cost = estimate.totalHours * PRICING_SYSTEM.hourlyRate;
         
@@ -286,6 +289,7 @@ ${JSON.stringify(PRICING_SYSTEM.features, null, 2)}
             ...estimate,
             hourlyRate: PRICING_SYSTEM.hourlyRate,
             totalCost: cost,
+            detectedFeatures: detectedFeatures, // Всегда добавляем
             costBreakdown: estimate.components.map(c => ({
                 ...c,
                 cost: c.hours * PRICING_SYSTEM.hourlyRate
@@ -312,9 +316,11 @@ function fallbackEstimate(requirements) {
     });
     
     // Анализируем требования и добавляем функции
+    const detectedFeatures = [];
     Object.entries(PRICING_SYSTEM.features).forEach(([feature, hours]) => {
         if (lower.includes(feature.split(' ')[0])) {
             totalHours += hours;
+            detectedFeatures.push(feature);
             components.push({ 
                 name: feature, 
                 hours, 
@@ -332,7 +338,8 @@ function fallbackEstimate(requirements) {
         totalHours,
         totalCost: totalHours * PRICING_SYSTEM.hourlyRate,
         complexity: 'средний',
-        timeline: `${Math.ceil(totalHours / 40)} недель`
+        timeline: `${Math.ceil(totalHours / 40)} недель`,
+        detectedFeatures: detectedFeatures // Добавляем найденные функции
     };
 }
 
@@ -601,89 +608,69 @@ function parseRequirements(text) {
     const lower = text.toLowerCase();
     const detectedFeatures = [];
     
-    // Проверяем каждую функцию
+    // Улучшенные паттерны для точного распознавания
+    const improvedPatterns = {
+        // E-commerce
+        'каталог товаров': /каталог[а-я\s]*товар|товар[а-я\s]*каталог|список товаров|ассортимент/i,
+        'корзина': /корзин[аеу]|добавить в заказ|оформить заказ|cart/i,
+        'интеграция платежей': /(интеграция[а-я\s]*)?плат[её]ж|оплат[аеу]|payment|pay|касс[аеу]/i,
+        'система скидок': /скидк[аиеу]|промокод|discount|акци[яи]/i,
+        'отслеживание доставки': /отслежив[а-я]*доставк|трек[а-я]*доставк|статус доставки/i,
+        
+        // Записи и бронирование  
+        'календарь записи': /календар[ьяи][а-я\s]*запис|запис[аеиь][а-я\s]*календар|расписани[ея]/i,
+        'выбор специалиста': /выбор[а-я\s]*специалист|специалист[а-я\s]*выбор|мастер[а-я\s]*выбор/i,
+        'напоминания': /напомин[а-я]*|уведомлени[яеи]|notification|reminder/i,
+        'отмена/перенос записи': /отмен[аеу][а-я\s]*запис|перенос[а-я\s]*запис|отложить/i,
+        'интеграция с CRM': /crm|интеграция[а-я\s]*crm|система учёта/i,
+        
+        // AI и аналитика
+        'интеграция GPT': /gpt|chatgpt|ai|искусственный интеллект|умн[ыаяое][а-я\s]*бот/i,
+        'обработка изображений': /обработк[аеу][а-я\s]*изображен|фото[а-я\s]*обработк|анализ фото/i,
+        'распознавание голоса': /распознаван[а-я]*голос|голос[а-я\s]*распознав|voice recognition/i,
+        'генерация отчетов': /генерац[а-я]*отчёт|создан[а-я]*отчёт|отчётност/i,
+        'дашборд аналитики': /дашборд|dashboard|аналитик[аеу]|статистик[аеу]/i,
+        
+        // Коммуникации
+        'рассылки': /рассылк[аеиу]|массов[а-я]*отправк|newsletter|mailing/i,
+        'персонализация': /персонализац[а-я]*|индивидуальн[а-я]*подход|personalization/i,
+        'многоязычность': /многоязычн[а-я]*|мультиязычн[а-я]*|перевод|translation/i,
+        'уведомления': /уведомлени[яеи]|пуш[а-я\s]*уведомлени/i,
+        
+        // Специфичные функции
+        'натальная карта': /натальн[а-я]*карт|карт[аеу][а-я\s]*рожден/i,
+        'расчет гороскопа': /гороскоп|астрологическ[а-я]*расчёт|прогноз[а-я\s]*звёзд/i,
+        'анализ совместимости': /совместимост[ьи]|партнёрск[а-я]*анализ|compatibility/i,
+        'обработка изображений по фото': /анализ[а-я\s]*по фото|фото[а-я\s]*анализ|загруз[а-я]*фото/i
+    };
+    
+    // Проверяем каждый паттерн
+    Object.entries(improvedPatterns).forEach(([feature, pattern]) => {
+        if (pattern.test(text)) {
+            detectedFeatures.push(feature);
+        }
+    });
+    
+    // Дополнительная проверка для функций из PRICING_SYSTEM
     Object.keys(PRICING_SYSTEM.features).forEach(feature => {
-        // Простая проверка по ключевым словам
-        const keywords = feature.split(' ');
-        if (keywords.some(keyword => lower.includes(keyword))) {
-            detectedFeatures.push(feature);
+        if (!detectedFeatures.includes(feature)) {
+            // Проверяем точное совпадение слов (не частичное включение)
+            const featureWords = feature.toLowerCase().split(' ');
+            const textWords = lower.split(/\s+/);
+            
+            // Функция найдена, если все ключевые слова присутствуют в тексте
+            const foundAllWords = featureWords.every(word => 
+                textWords.some(textWord => textWord.includes(word) && word.length > 2)
+            );
+            
+            if (foundAllWords) {
+                detectedFeatures.push(feature);
+            }
         }
     });
     
-    // Дополнительные паттерны для распознавания
-    const patterns = {
-        'каталог товаров': /каталог|товар|продукт|магазин|shop/i,
-        'корзина': /корзин|заказ|купить|cart/i,
-        'интеграция платежей': /платеж|оплат|payment|pay/i,
-        'календарь записи': /запис|календар|бронирован|appointment/i,
-        'интеграция GPT': /gpt|chatgpt|ai|искусственный интеллект|умный/i,
-        'рассылки': /рассылк|уведомлен|newsletter|notification/i,
-        'админ-панель': /админ|панель|управлен|admin/i
-    };
-    
-    Object.entries(patterns).forEach(([feature, pattern]) => {
-        if (pattern.test(text) && !detectedFeatures.includes(feature)) {
-            detectedFeatures.push(feature);
-        }
-    });
-    
-    return detectedFeatures;
-}
-
-// Автоматический расчет сметы
-async function autoCalculateEstimate(requirements, conversation) {
-    // Парсим функции
-    const detectedFeatures = parseRequirements(requirements);
-    
-    let totalHours = 0;
-    const components = [];
-    
-    // Добавляем базовые компоненты
-    Object.entries(PRICING_SYSTEM.baseComponents).forEach(([name, hours]) => {
-        totalHours += hours;
-        components.push({
-            name,
-            hours,
-            cost: hours * PRICING_SYSTEM.hourlyRate
-        });
-    });
-    
-    // Добавляем найденные функции
-    detectedFeatures.forEach(feature => {
-        const hours = PRICING_SYSTEM.features[feature];
-        if (hours) {
-            totalHours += hours;
-            components.push({
-                name: feature,
-                hours,
-                cost: hours * PRICING_SYSTEM.hourlyRate
-            });
-        }
-    });
-    
-    // Добавляем тестирование (20%)
-    const testingHours = Math.ceil(totalHours * 0.2);
-    components.push({
-        name: 'Тестирование и отладка',
-        hours: testingHours,
-        cost: testingHours * PRICING_SYSTEM.hourlyRate
-    });
-    totalHours += testingHours;
-    
-    // Считаем стоимость
-    let totalCost = totalHours * PRICING_SYSTEM.hourlyRate;
-    if (totalCost < PRICING_SYSTEM.minProjectCost) {
-        totalCost = PRICING_SYSTEM.minProjectCost;
-    }
-    
-    return {
-        projectName: 'Telegram-бот для бизнеса',
-        components,
-        totalHours,
-        totalCost,
-        detectedFeatures,
-        timeline: `${Math.ceil(totalHours / 40)} недель`
-    };
+    // Удаляем дубликаты
+    return [...new Set(detectedFeatures)];
 }
 
 // Отправка сметы в Telegram
@@ -700,6 +687,10 @@ async function sendEstimateToTelegram(estimate, sessionId) {
             ...estimate
         });
         
+        // Обеспечиваем наличие detectedFeatures
+        const detectedFeatures = estimate.detectedFeatures || [];
+        const components = estimate.components || [];
+        
         // Форматируем сообщение
         const message = 
             `📊 **НОВАЯ СМЕТА**\n\n` +
@@ -707,10 +698,12 @@ async function sendEstimateToTelegram(estimate, sessionId) {
             `💰 **ИТОГО: ${estimate.totalCost.toLocaleString('ru-RU')} ₽**\n` +
             `⏱️ Время: ${estimate.totalHours} часов\n` +
             `📅 Срок: ${estimate.timeline}\n\n` +
-            `📋 Найденные функции:\n` +
-            estimate.detectedFeatures.map(f => `• ${f}`).join('\n') + '\n\n' +
+            (detectedFeatures.length > 0 ? 
+                `📋 Найденные функции:\n${detectedFeatures.map(f => `• ${f}`).join('\n')}\n\n` : 
+                '📋 Базовые функции бота\n\n'
+            ) +
             `💼 Компоненты:\n` +
-            estimate.components.slice(0, 5).map(c => `• ${c.name}: ${c.hours}ч`).join('\n');
+            components.slice(0, 5).map(c => `• ${c.name}: ${c.hours}ч`).join('\n');
         
         // Кнопки
         const keyboard = {
@@ -803,7 +796,7 @@ function setupTelegramHandlers() {
     });
 }
 
-// Основной endpoint для GPT-помощника с кэшированием
+// ===== ИСПРАВЛЕННАЯ ЛОГИКА АВТОМАТИЧЕСКОГО РАСЧЕТА =====
 app.post('/api/gpt-assistant', async (req, res) => {
     try {
         console.log('📨 Получен запрос к GPT:', req.body);
@@ -897,26 +890,26 @@ app.post('/api/gpt-assistant', async (req, res) => {
             }
         }
 
-        // ===== НОВОЕ: Проверка на автоматический расчет =====
+        // ===== ИСПРАВЛЕННАЯ ЛОГИКА АВТОМАТИЧЕСКОГО РАСЧЕТА =====
         const allMessages = [...conversation, { role: 'user', content: message }];
         const fullText = allMessages.map(m => m.content).join(' ');
         
-        // Условия для расчета
+        // Улучшенные условия для расчета
         const shouldCalculate = 
-            conversation.length >= 4 || // После 4 сообщений
-            message.toLowerCase().includes('достаточно') ||
-            message.toLowerCase().includes('рассчита') ||
-            message.toLowerCase().includes('смет') ||
-            message.toLowerCase().includes('сколько') ||
-            message.toLowerCase().includes('цена') ||
-            message.toLowerCase().includes('стоит') ||
-            parseRequirements(fullText).length >= 3; // Или 3+ функции найдено
+            conversation.length >= 8 || // После 8 сообщений (не 4)
+            message.toLowerCase().includes('достаточно информации') ||
+            message.toLowerCase().includes('рассчитайте смету') ||
+            message.toLowerCase().includes('создайте смету') ||
+            message.toLowerCase().includes('сколько будет стоить') ||
+            message.toLowerCase().includes('какая цена') ||
+            message.toLowerCase().includes('сколько стоит') ||
+            (parseRequirements(fullText).length >= 5 && conversation.length >= 6); // 5+ функций И 6+ сообщений
 
         if (shouldCalculate) {
             console.log('💰 Запускаем автоматический расчет сметы...');
             
-            // Делаем расчет
-            const estimate = await autoCalculateEstimate(fullText, conversation);
+            // Используем единую функцию расчета
+            const estimate = await calculateProjectEstimate(fullText, conversation);
             
             // Отправляем в Telegram
             await sendEstimateToTelegram(estimate, sessionId);
@@ -939,13 +932,7 @@ app.post('/api/gpt-assistant', async (req, res) => {
             // Отвечаем клиенту со сметой
             const result = {
                 success: true,
-                message: 
-                    `✅ Отлично! Я проанализировал ваши требования:\n\n` +
-                    `💰 **Стоимость: ${estimate.totalCost.toLocaleString('ru-RU')} ₽**\n` +
-                    `⏱️ **Срок: ${estimate.timeline}**\n\n` +
-                    `📊 Детальная смета отправлена менеджеру.\n` +
-                    `📞 Вам позвонят в течение 30 минут для уточнения деталей.\n\n` +
-                    `🔍 **Найденные функции:**\n${estimate.detectedFeatures.map(f => `• ${f}`).join('\n')}`,
+                message: formatEstimateMessage(estimate),
                 estimate: estimate,
                 quickReplies: ['📞 Позвоните мне', '✏️ Изменить требования', '💬 Задать вопрос']
             };
@@ -955,7 +942,7 @@ app.post('/api/gpt-assistant', async (req, res) => {
             
             return res.json(result);
         }
-        // ===== КОНЕЦ НОВОГО КОДА =====
+        // ===== КОНЕЦ ИСПРАВЛЕННОЙ ЛОГИКИ =====
 
         // Подготовка сообщений для OpenAI
         const messages = [
@@ -1059,13 +1046,15 @@ app.post('/api/gpt-assistant', async (req, res) => {
 async function handleFormulationMode(req, res) {
     const { message, conversation = [], sessionId } = req.body;
 
-    // ===== ДОБАВИТЬ АВТОМАТИЧЕСКИЙ РАСЧЕТ =====
-    // Проверяем нужно ли считать смету
+    // ===== УЛУЧШЕННАЯ ЛОГИКА АВТОМАТИЧЕСКОГО РАСЧЕТА =====
+    // Проверяем нужно ли считать смету (более строгие условия)
     const shouldCalculate = 
-        message.toLowerCase().includes('сколько') ||
-        message.toLowerCase().includes('цен') ||
-        message.toLowerCase().includes('стоит') ||
-        conversation.length > 8; // После 8 сообщений автоматически считаем
+        message.toLowerCase().includes('рассчитайте') ||
+        message.toLowerCase().includes('посчитайте') ||
+        message.toLowerCase().includes('сколько будет стоить') ||
+        message.toLowerCase().includes('какая цена') ||
+        message.toLowerCase().includes('создайте смету') ||
+        (conversation.length >= 10 && parseRequirements(conversation.map(m => m.content).join(' ')).length >= 4); // После 10 сообщений И 4+ функций
 
     let estimate = null;
     let estimateMessage = '';
@@ -1073,9 +1062,12 @@ async function handleFormulationMode(req, res) {
     if (shouldCalculate) {
         const requirements = extractRequirements(conversation);
         
-        // Считаем смету
+        // Считаем смету используя единую функцию
         estimate = await calculateProjectEstimate(requirements, conversation);
         estimateMessage = formatEstimateMessage(estimate);
+        
+        // Отправляем в Telegram
+        await sendEstimateToTelegram(estimate, sessionId);
         
         // Сохраняем в БД
         if (sessionId && Conversation) {
@@ -1109,7 +1101,8 @@ async function handleFormulationMode(req, res) {
 - Максимум 2-3 уточняющих вопроса
 - Затем сразу предлагай решение
 - Не повторяй одинаковые вопросы
-- Будь готов к нестандартным нишам`;
+- Будь готов к нестандартным нишам
+- НЕ предлагай расчет сметы каждый раз - только когда клиент готов или явно просит`;
 
     let messages = [
         { role: 'system', content: formulationPrompt }
