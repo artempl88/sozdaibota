@@ -2943,7 +2943,12 @@
                 try {
                     const formData = new FormData();
                     formData.append('audio', audioBlob, 'voice.webm');
-                    formData.append('sessionId', 'session_' + Date.now());
+                    formData.append('sessionId', this.sessionId || 'session_' + Date.now());
+                    
+                    // Добавляем контекст разговора для GPT
+                    if (this.conversation && this.conversation.length > 0) {
+                        formData.append('conversation', JSON.stringify(this.conversation));
+                    }
                     
                     const response = await fetch('/api/voice-message', {
                         method: 'POST',
@@ -2953,23 +2958,51 @@
                     const data = await response.json();
                     this.hideTyping();
                     
-                    if (data.transcription) {
-                        this.addMessage('assistant', `📝 Распознано: "${data.transcription}"`);
+                    if (data.success && data.transcription) {
+                        // Показываем что было распознано
+                        this.addMessage('user', `🎤 "${data.transcription}"`);
                         
+                        // Добавляем в историю разговора
+                        this.conversation.push({
+                            role: 'user',
+                            content: data.transcription
+                        });
+                        
+                        // Показываем ответ от GPT
+                        if (data.message) {
+                            this.addMessage('assistant', data.message);
+                            
+                            // Добавляем ответ в историю
+                            this.conversation.push({
+                                role: 'assistant',
+                                content: data.message
+                            });
+                        }
+                        
+                        // Если есть быстрая задача, показываем её
                         if (data.quickTask) {
                             this.showTaskSummary(data.quickTask);
                             this.showBusinessFeatures(data.businessFeatures);
                         }
                         
-                        if (data.message) {
-                            this.addMessage('assistant', data.message);
+                        // Показываем быстрые кнопки если есть
+                        if (data.quickReplies && data.quickReplies.length > 0) {
+                            this.showQuickOptions(data.quickReplies);
                         }
+                        
+                        // Отмечаем что это голосовой ввод
+                        if (data.isVoiceInput) {
+                            console.log('✅ Голосовое сообщение успешно обработано GPT');
+                        }
+                        
+                    } else {
+                        throw new Error(data.error || 'Неизвестная ошибка');
                     }
                     
                 } catch (error) {
                     console.error('Voice error:', error);
                     this.hideTyping();
-                    this.addMessage('assistant', 'Не удалось обработать голосовое сообщение. Попробуйте написать текстом.');
+                    this.addMessage('assistant', '❌ Не удалось обработать голосовое сообщение. Попробуйте написать текстом или повторите запись.');
                 }
             };
             

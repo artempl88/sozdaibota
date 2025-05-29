@@ -1466,7 +1466,7 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
             });
         }
 
-        const { sessionId } = req.body;
+        const { sessionId, conversation = [] } = req.body;
         let transcription = '';
         
         try {
@@ -1524,16 +1524,146 @@ app.post('/api/voice-message', upload.single('audio'), async (req, res) => {
             console.error('Не удалось удалить файл:', e);
         }
         
-        // Анализируем текст
+        // Сохраняем голосовое сообщение в базу данных
+        if (sessionId && Conversation) {
+            try {
+                await Conversation.findOneAndUpdate(
+                    { sessionId },
+                    {
+                        $push: {
+                            messages: { 
+                                role: 'user', 
+                                content: transcription,
+                                type: 'voice' // Отмечаем что это голосовое сообщение
+                            }
+                        }
+                    },
+                    { upsert: true }
+                );
+            } catch (dbError) {
+                console.error('Ошибка сохранения голосового сообщения в БД:', dbError);
+            }
+        }
+        
+        // НОВАЯ ФУНКЦИОНАЛЬНОСТЬ: Отправляем распознанный текст в GPT API
+        console.log('🧠 Отправляем распознанный текст в OpenAI GPT...');
+        
+        // Проверяем, можем ли дать мгновенный ответ
         const quickTask = analyzeQuickTask(transcription);
         
-        res.json({
-            success: true,
-            transcription: transcription,
-            quickTask: quickTask,
-            businessFeatures: quickTask?.businessValue,
-            message: quickTask ? generateQuickResponse(quickTask) : null
-        });
+        if (quickTask) {
+            console.log('⚡ Найден быстрый шаблон для голосового ввода:', quickTask.title);
+            
+            return res.json({
+                success: true,
+                transcription: transcription,
+                message: generateQuickResponse(quickTask),
+                quickTask: quickTask,
+                businessFeatures: quickTask.businessValue,
+                isVoiceInput: true,
+                quickReplies: [
+                    '✅ Оформить заказ',
+                    '➕ Добавить функции',
+                    '💬 Уточнить детали',
+                    '🔄 Другая задача'
+                ]
+            });
+        }
+        
+        try {
+            // Подготовка сообщений для OpenAI
+            const messages = [
+                { role: 'system', content: ENHANCED_SYSTEM_PROMPT },
+                ...conversation.slice(-10), // Берем последние 10 сообщений для контекста
+                { role: 'user', content: transcription }
+            ];
+    
+            // Запрос к OpenAI через прокси
+            const axiosConfig = {
+                headers: {
+                    'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'CreateBot-Assistant-Voice/2.0'
+                },
+                timeout: 30000
+            };
+    
+            // Добавляем прокси только если он настроен
+            if (proxyAgent) {
+                axiosConfig.httpsAgent = proxyAgent;
+                console.log('🔗 Используется прокси для запроса к OpenAI GPT');
+            }
+    
+            const gptResponse = await axios.post(
+                OPENAI_CONFIG.endpoint,
+                {
+                    model: OPENAI_CONFIG.model,
+                    messages: messages,
+                    max_tokens: 300,
+                    temperature: 0.7,
+                    presence_penalty: 0.1,
+                    frequency_penalty: 0.1
+                },
+                axiosConfig
+            );
+    
+            console.log('✅ Ответ от OpenAI GPT получен для голосового ввода');
+    
+            const assistantMessage = gptResponse.data.choices[0]?.message?.content;
+    
+            if (!assistantMessage) {
+                throw new Error('Нет ответа от OpenAI GPT');
+            }
+    
+            // Сохранение ответа ассистента в MongoDB
+            if (sessionId && Conversation) {
+                try {
+                    await Conversation.findOneAndUpdate(
+                        { sessionId },
+                        {
+                            $push: {
+                                messages: { 
+                                    role: 'assistant', 
+                                    content: assistantMessage,
+                                    responseToVoice: true // Отмечаем что это ответ на голос
+                                }
+                            }
+                        }
+                    );
+                } catch (dbError) {
+                    console.error('Ошибка сохранения ответа GPT в БД:', dbError);
+                }
+            }
+    
+            // Анализ ответа для предложения быстрых кнопок
+            const quickReplies = generateQuickReplies(assistantMessage, transcription);
+    
+            res.json({
+                success: true,
+                transcription: transcription,
+                message: assistantMessage,
+                isVoiceInput: true,
+                quickReplies: quickReplies,
+                usage: gptResponse.data.usage
+            });
+            
+        } catch (gptError) {
+            console.error('❌ Ошибка GPT API для голосового ввода:', gptError.message);
+            
+            // Fallback если GPT не работает
+            res.json({
+                success: true,
+                transcription: transcription,
+                message: getFallbackResponse(transcription),
+                isVoiceInput: true,
+                fallback: true,
+                quickReplies: [
+                    '🔄 Попробовать снова',
+                    '✍️ Написать текстом',
+                    '📞 Связаться с оператором'
+                ]
+            });
+        }
         
     } catch (error) {
         console.error('❌ Ошибка обработки голоса:', error);
