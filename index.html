@@ -1547,6 +1547,49 @@
                 opacity: 1;
             }
         }
+
+        /* Стили для динамических контактных полей */
+        .contact-field {
+            margin-top: 1rem;
+            animation: slideDown 0.3s ease;
+        }
+
+        .contact-field label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .contact-field input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .contact-field input:focus {
+            outline: none;
+            border-color: #0088cc;
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        .contact-field input:valid {
+            border-color: #10b981;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -1811,9 +1854,8 @@
                 
                 <form id="quickSurveyForm">
                     <div class="form-group">
-                        <label for="userName">Имя и контактные данные *</label>
+                        <label for="userName">Ваше имя *</label>
                         <input type="text" id="userName" name="name" required placeholder="Введите ваше имя">
-                        <input type="text" id="userContact" name="contactInfo" required placeholder="Телефон или email">
                     </div>
                     
                     <div class="form-group">
@@ -1855,25 +1897,48 @@
                         <label>Предпочтительные каналы связи *</label>
                         <div class="checkbox-group">
                             <label class="checkbox-label">
-                                <input type="checkbox" name="preferredChannels" value="Telegram">
+                                <input type="checkbox" name="preferredChannels" value="Telegram" onchange="toggleContactField('telegram', this.checked)">
                                 <span class="checkmark"></span>
                                 Telegram
                             </label>
                             <label class="checkbox-label">
-                                <input type="checkbox" name="preferredChannels" value="Email">
+                                <input type="checkbox" name="preferredChannels" value="Email" onchange="toggleContactField('email', this.checked)">
                                 <span class="checkmark"></span>
                                 Email
                             </label>
                             <label class="checkbox-label">
-                                <input type="checkbox" name="preferredChannels" value="Телефон">
+                                <input type="checkbox" name="preferredChannels" value="Телефон" onchange="toggleContactField('phone', this.checked)">
                                 <span class="checkmark"></span>
                                 Телефон
                             </label>
                             <label class="checkbox-label">
-                                <input type="checkbox" name="preferredChannels" value="WhatsApp">
+                                <input type="checkbox" name="preferredChannels" value="WhatsApp" onchange="toggleContactField('whatsapp', this.checked)">
                                 <span class="checkmark"></span>
                                 WhatsApp
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- Динамические поля контактов -->
+                    <div id="contactFields">
+                        <div id="telegramField" class="contact-field" style="display: none;">
+                            <label for="telegramContact">Telegram *</label>
+                            <input type="text" id="telegramContact" name="telegramContact" placeholder="@username или ссылка">
+                        </div>
+                        
+                        <div id="emailField" class="contact-field" style="display: none;">
+                            <label for="emailContact">Email *</label>
+                            <input type="email" id="emailContact" name="emailContact" placeholder="example@mail.com">
+                        </div>
+                        
+                        <div id="phoneField" class="contact-field" style="display: none;">
+                            <label for="phoneContact">Телефон *</label>
+                            <input type="tel" id="phoneContact" name="phoneContact" placeholder="+7 (999) 123-45-67">
+                        </div>
+                        
+                        <div id="whatsappField" class="contact-field" style="display: none;">
+                            <label for="whatsappContact">WhatsApp *</label>
+                            <input type="tel" id="whatsappContact" name="whatsappContact" placeholder="+7 (999) 123-45-67">
                         </div>
                     </div>
                     
@@ -1912,6 +1977,31 @@
     </div>
 
     <script>
+        // Функция для показа/скрытия полей контактов в зависимости от выбранных каналов
+        function toggleContactField(fieldType, isChecked) {
+            const fieldMap = {
+                'telegram': 'telegramField',
+                'email': 'emailField', 
+                'phone': 'phoneField',
+                'whatsapp': 'whatsappField'
+            };
+            
+            const fieldId = fieldMap[fieldType];
+            const field = document.getElementById(fieldId);
+            const input = field.querySelector('input');
+            
+            if (isChecked) {
+                field.style.display = 'block';
+                input.required = true;
+                // Фокус на поле для удобства
+                setTimeout(() => input.focus(), 100);
+            } else {
+                field.style.display = 'none';
+                input.required = false;
+                input.value = ''; // Очищаем значение
+            }
+        }
+
         // Генерация fingerprint браузера для сохранения сессий
         function generateFingerprint() {
             const canvas = document.createElement('canvas');
@@ -2224,14 +2314,38 @@
                 const formData = new FormData(e.target);
                 const submitBtn = e.target.querySelector('.submit-form-btn');
                 
+                // Собираем контактные данные из активных полей
+                const contacts = {};
+                const preferredChannels = formData.getAll('preferredChannels');
+                
+                preferredChannels.forEach(channel => {
+                    const fieldMap = {
+                        'Telegram': 'telegramContact',
+                        'Email': 'emailContact', 
+                        'Телефон': 'phoneContact',
+                        'WhatsApp': 'whatsappContact'
+                    };
+                    
+                    const fieldName = fieldMap[channel];
+                    if (fieldName) {
+                        const value = formData.get(fieldName);
+                        if (value && value.trim()) {
+                            contacts[channel] = value.trim();
+                        }
+                    }
+                });
+                
                 // Собираем данные формы
                 const data = {
                     name: formData.get('name'),
-                    contactInfo: formData.get('contactInfo'),
+                    contactInfo: Object.keys(contacts).map(channel => 
+                        `${channel}: ${contacts[channel]}`
+                    ).join(', '), // Объединяем все контакты для совместимости
+                    contacts: contacts, // Новое структурированное поле
                     position: formData.get('position'),
                     industry: formData.get('industry'),
                     budget: formData.get('budget'),
-                    preferredChannels: formData.getAll('preferredChannels'),
+                    preferredChannels: preferredChannels,
                     timeline: formData.get('timeline'),
                     fingerprint: this.fingerprint // Добавляем fingerprint
                 };
@@ -2280,7 +2394,7 @@
             
             validateFormData(data) {
                 // Проверяем обязательные поля
-                const required = ['name', 'contactInfo', 'position', 'industry', 'budget', 'timeline'];
+                const required = ['name', 'position', 'industry', 'budget', 'timeline'];
                 for (let field of required) {
                     if (!data[field] || data[field].trim() === '') {
                         this.showError(`Заполните поле "${this.getFieldName(field)}"`);
@@ -2292,6 +2406,44 @@
                 if (!data.preferredChannels || data.preferredChannels.length === 0) {
                     this.showError('Выберите хотя бы один канал связи');
                     return false;
+                }
+                
+                // Проверяем что для всех выбранных каналов заполнены контакты
+                for (let channel of data.preferredChannels) {
+                    if (!data.contacts[channel] || data.contacts[channel].trim() === '') {
+                        this.showError(`Заполните контакт для канала "${channel}"`);
+                        return false;
+                    }
+                }
+                
+                // Валидация email
+                if (data.contacts.Email) {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(data.contacts.Email)) {
+                        this.showError('Введите корректный email адрес');
+                        return false;
+                    }
+                }
+                
+                // Валидация телефонов
+                if (data.contacts['Телефон'] || data.contacts['WhatsApp']) {
+                    const phoneFields = [data.contacts['Телефон'], data.contacts['WhatsApp']].filter(Boolean);
+                    for (let phone of phoneFields) {
+                        // Простая проверка на наличие цифр
+                        if (!/\d{10,}/.test(phone.replace(/\D/g, ''))) {
+                            this.showError('Введите корректный номер телефона (минимум 10 цифр)');
+                            return false;
+                        }
+                    }
+                }
+                
+                // Валидация Telegram
+                if (data.contacts.Telegram) {
+                    const telegram = data.contacts.Telegram;
+                    if (!telegram.startsWith('@') && !telegram.includes('t.me/')) {
+                        this.showError('Введите Telegram в формате @username или ссылку t.me/username');
+                        return false;
+                    }
                 }
                 
                 return true;

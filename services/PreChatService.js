@@ -136,6 +136,16 @@ class PreChatService {
 
     async createSession(formData) {
         try {
+            // Валидация на сервере
+            const validation = this.validateFormData(formData);
+            if (!validation.valid) {
+                return { 
+                    success: false, 
+                    error: validation.error,
+                    missing: validation.missing 
+                };
+            }
+
             const sessionId = this.generateSessionId();
             
             const session = new PreChatForm({
@@ -144,6 +154,7 @@ class PreChatService {
                 formData: {
                     name: formData.name,
                     contactInfo: formData.contactInfo,
+                    contacts: formData.contacts || {}, // Добавляем структурированные контакты
                     position: formData.position,
                     industry: formData.industry,
                     budget: formData.budget,
@@ -165,7 +176,10 @@ class PreChatService {
             return { sessionId, success: true };
         } catch (error) {
             console.error('Ошибка создания сессии:', error);
-            throw new Error('Не удалось создать сессию');
+            return { 
+                success: false, 
+                error: 'Не удалось создать сессию: ' + error.message 
+            };
         }
     }
 
@@ -391,17 +405,89 @@ ${stageGuidance}
     }
 
     validateFormData(formData) {
-        const required = ['name', 'contactInfo', 'position', 'industry', 'budget', 'preferredChannels', 'timeline'];
-        const missing = required.filter(field => !formData[field]);
+        const required = ['name', 'position', 'industry', 'budget', 'timeline'];
+        const missing = [];
         
+        // Проверяем основные поля
+        for (const field of required) {
+            if (!formData[field] || formData[field].trim() === '') {
+                missing.push(field);
+            }
+        }
+        
+        // Проверяем каналы связи
+        if (!formData.preferredChannels || formData.preferredChannels.length === 0) {
+            return {
+                valid: false,
+                error: 'Выберите хотя бы один канал связи',
+                missing: ['preferredChannels']
+            };
+        }
+        
+        // Проверяем что для всех выбранных каналов есть контакты
+        if (formData.contacts) {
+            for (const channel of formData.preferredChannels) {
+                if (!formData.contacts[channel] || formData.contacts[channel].trim() === '') {
+                    return {
+                        valid: false,
+                        error: `Заполните контакт для канала "${channel}"`,
+                        missing: [`contacts.${channel}`]
+                    };
+                }
+            }
+            
+            // Валидация email
+            if (formData.contacts.Email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(formData.contacts.Email)) {
+                    return {
+                        valid: false,
+                        error: 'Введите корректный email адрес',
+                        missing: ['contacts.Email']
+                    };
+                }
+            }
+            
+            // Валидация телефонов
+            const phoneChannels = ['Телефон', 'WhatsApp'];
+            for (const channel of phoneChannels) {
+                if (formData.contacts[channel]) {
+                    const phone = formData.contacts[channel];
+                    // Проверяем что есть минимум 10 цифр
+                    const digitsOnly = phone.replace(/\D/g, '');
+                    if (digitsOnly.length < 10) {
+                        return {
+                            valid: false,
+                            error: `Введите корректный номер для ${channel} (минимум 10 цифр)`,
+                            missing: [`contacts.${channel}`]
+                        };
+                    }
+                }
+            }
+            
+            // Валидация Telegram
+            if (formData.contacts.Telegram) {
+                const telegram = formData.contacts.Telegram;
+                if (!telegram.startsWith('@') && !telegram.includes('t.me/')) {
+                    return {
+                        valid: false,
+                        error: 'Введите Telegram в формате @username или ссылку t.me/username',
+                        missing: ['contacts.Telegram']
+                    };
+                }
+            }
+        }
+        
+        // Если есть отсутствующие поля
         if (missing.length > 0) {
-            return { valid: false, missing };
+            return {
+                valid: false,
+                error: `Заполните обязательные поля: ${missing.join(', ')}`,
+                missing: missing
+            };
         }
 
-        if (!Array.isArray(formData.preferredChannels) || formData.preferredChannels.length === 0) {
-            return { valid: false, error: 'Выберите хотя бы один канал связи' };
-        }
-
+        // Валидация значений
         const validBudgets = ['до 20 000₽', '20 000 - 50 000₽', '50 000 - 100 000₽', '100 000 - 200 000₽', 'свыше 200 000₽'];
         if (!validBudgets.includes(formData.budget)) {
             return { valid: false, error: 'Некорректный бюджет' };
@@ -411,7 +497,7 @@ ${stageGuidance}
         if (!validTimelines.includes(formData.timeline)) {
             return { valid: false, error: 'Некорректные сроки' };
         }
-
+        
         return { valid: true };
     }
 

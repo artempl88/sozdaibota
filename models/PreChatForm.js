@@ -23,6 +23,11 @@ const preChatFormSchema = new mongoose.Schema({
             required: true,
             trim: true
         },
+        contacts: {
+            type: Map,
+            of: String,
+            default: new Map()
+        },
         position: {
             type: String,
             required: true,
