@@ -21,6 +21,9 @@ require('dotenv').config();
 const PreChatForm = require('./models/PreChatForm');
 const PreChatService = require('./services/PreChatService');
 
+// Создаем экземпляр сервиса для работы с анкетами
+const preChatService = new PreChatService();
+
 const PRICING_SYSTEM = {
     hourlyRate: 3000,
     minProjectCost: 15000, // Минимальная стоимость проекта
@@ -486,15 +489,19 @@ app.use(helmet({
         directives: {
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
-            scriptSrcAttr: ["'unsafe-inline'"],  // ← ЭТО ВАЖНО ДЛЯ ONCLICK
+            scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
-            connectSrc: ["'self'", "https://api.openai.com", "ws:", "wss:"],
-            mediaSrc: ["'self'", "blob:"],  // Для аудио записи
+            connectSrc: ["'self'", "https://api.openai.com", "ws:", "wss:", "http://localhost:3001"],
+            mediaSrc: ["'self'", "blob:"],
+            objectSrc: ["'none'"],
+            frameSrc: ["'self'"],
+            upgradeInsecureRequests: [],
         },
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false, // Отключаем CSP в development
 }));
 
 // Middleware
@@ -2133,9 +2140,6 @@ async function callOpenAIWithPrompt(messages) {
 }
 
 // ===== ENDPOINT ДЛЯ СТАТИСТИКИ СМЕТ =====
-
-// Создаем экземпляр сервиса
-const preChatService = new PreChatService();
 
 // Проверка существующей сессии по fingerprint
 app.post('/api/check-session', async (req, res) => {
