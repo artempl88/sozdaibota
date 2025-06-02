@@ -1912,6 +1912,36 @@
     </div>
 
     <script>
+        // Генерация fingerprint браузера для сохранения сессий
+        function generateFingerprint() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Canvas fingerprint
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Создать Бота fingerprint', 2, 2);
+            const canvasFingerprint = canvas.toDataURL();
+            
+            // Собираем данные браузера
+            const fingerprint = {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                languages: navigator.languages ? navigator.languages.join(',') : '',
+                platform: navigator.platform,
+                screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                canvas: canvasFingerprint.slice(-50), // Последние 50 символов
+                cookieEnabled: navigator.cookieEnabled,
+                doNotTrack: navigator.doNotTrack || 'unknown',
+                hardwareConcurrency: navigator.hardwareConcurrency || 'unknown'
+            };
+            
+            // Создаём хеш
+            const fingerprintString = Object.values(fingerprint).join('|');
+            return btoa(fingerprintString).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+        }
+
         // Loading screen
         window.addEventListener('load', function() {
             const loading = document.getElementById('loading');
@@ -2070,6 +2100,10 @@
                 this.formData = null;
                 this.isFormMode = true; // Начинаем с формы
                 
+                // Генерируем fingerprint браузера
+                this.fingerprint = generateFingerprint();
+                console.log('🔍 Browser fingerprint:', this.fingerprint);
+                
                 // Переменные для голосовой записи
                 this.mediaRecorder = null;
                 this.audioChunks = [];
@@ -2078,7 +2112,8 @@
                 this.apiConfig = {
                     formEndpoint: '/api/pre-chat-form',
                     messageEndpoint: '/api/pre-chat-message',
-                    historyEndpoint: '/api/pre-chat-history'
+                    historyEndpoint: '/api/pre-chat-history',
+                    sessionCheckEndpoint: '/api/check-session'
                 };
 
                 this.init();
@@ -2095,43 +2130,75 @@
                 toggle.addEventListener('click', () => this.toggleChat());
                 close.addEventListener('click', () => this.closeChat());
                 
+                // Сначала проверяем существующую сессию
+                this.checkExistingSession();
+                
                 // Обработчик отправки формы
                 form.addEventListener('submit', (e) => this.handleFormSubmit(e));
                 
                 // Обработчики чата (активируются после заполнения формы)
                 input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !this.isFormMode) {
-                        e.preventDefault();
-                        this.handleInput(input.value);
-                        input.value = '';
+                    if (e.key === 'Enter' && !this.isFormMode) {
+                        this.sendMessage();
                     }
                 });
                 
                 sendButton.addEventListener('click', () => {
                     if (!this.isFormMode) {
-                        const inputValue = input.value.trim();
-                        if (inputValue) {
-                            this.handleInput(inputValue);
-                            input.value = '';
-                        }
+                        this.sendMessage();
                     }
                 });
                 
-                // Обработчик голосовой кнопки
+                // Обработчик голосовой записи
                 voiceButton.addEventListener('click', () => {
                     if (!this.isFormMode) {
                         this.handleVoiceRecording();
                     }
                 });
-                
-                // Активация кнопки отправки
-                input.addEventListener('input', () => {
-                    if (input.value.trim() && !this.isFormMode) {
-                        sendButton.classList.add('active');
+            }
+            
+            // Проверка существующей сессии по fingerprint
+            async checkExistingSession() {
+                try {
+                    console.log('🔍 Проверяем существующую сессию...');
+                    
+                    const response = await fetch(this.apiConfig.sessionCheckEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            fingerprint: this.fingerprint
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.sessionFound) {
+                        console.log('✅ Найдена существующая сессия:', data.sessionId);
+                        
+                        // Восстанавливаем сессию
+                        this.sessionId = data.sessionId;
+                        this.formData = data.formData;
+                        this.isFormMode = false;
+                        
+                        // Скрываем форму и показываем чат
+                        this.hideForm();
+                        this.showChatInterface();
+                        
+                        // Загружаем историю чата
+                        await this.loadChatHistory();
+                        
+                        console.log('🔄 Сессия восстановлена успешно');
                     } else {
-                        sendButton.classList.remove('active');
+                        console.log('📝 Новый пользователь, показываем форму анкеты');
+                        // Новый пользователь - показываем форму
                     }
-                });
+                    
+                } catch (error) {
+                    console.error('❌ Ошибка проверки сессии:', error);
+                    // В случае ошибки - показываем форму
+                }
             }
             
             toggleChat() {
@@ -2165,7 +2232,8 @@
                     industry: formData.get('industry'),
                     budget: formData.get('budget'),
                     preferredChannels: formData.getAll('preferredChannels'),
-                    timeline: formData.get('timeline')
+                    timeline: formData.get('timeline'),
+                    fingerprint: this.fingerprint // Добавляем fingerprint
                 };
                 
                 // Валидация на клиенте
@@ -2515,19 +2583,62 @@
                 if (!this.sessionId) return;
                 
                 try {
+                    console.log('📜 Загружаем историю чата...');
+                    
                     const response = await fetch(`${this.apiConfig.historyEndpoint}/${this.sessionId}`);
                     const result = await response.json();
                     
                     if (result.success && result.chatHistory) {
+                        // Очищаем текущие сообщения
                         const messagesContainer = document.getElementById('gptMessages');
                         messagesContainer.innerHTML = '';
                         
+                        // Добавляем сообщения из истории
                         result.chatHistory.forEach(msg => {
                             this.addMessage(msg.role, msg.content);
                         });
+                        
+                        // Сохраняем историю в локальную переменную
+                        this.conversationHistory = result.chatHistory;
+                        
+                        console.log(`✅ Загружено ${result.chatHistory.length} сообщений`);
+                        
+                        // Показываем приветствие о продолжении
+                        this.addMessage('assistant', '👋 Добро пожаловать обратно! Продолжаем наш диалог...');
+                        
+                    } else {
+                        console.log('📝 История чата пуста или недоступна');
                     }
+                    
                 } catch (error) {
-                    console.error('Ошибка загрузки истории чата:', error);
+                    console.error('❌ Ошибка загрузки истории чата:', error);
+                }
+            }
+
+            // Метод для отправки текстового сообщения
+            sendMessage() {
+                const input = document.getElementById('gptInput');
+                const message = input.value.trim();
+                
+                if (message && !this.isFormMode) {
+                    this.handleInput(message);
+                    input.value = '';
+                }
+            }
+            
+            // Скрыть форму анкеты
+            hideForm() {
+                document.getElementById('preChatForm').style.display = 'none';
+            }
+            
+            // Показать интерфейс чата
+            showChatInterface() {
+                document.getElementById('gptMessages').style.display = 'flex';
+                document.getElementById('gptInputArea').style.display = 'block';
+                
+                // Меняем заголовок
+                if (this.formData && this.formData.name) {
+                    document.querySelector('.gpt-title').innerHTML = `💬 Консультация с ${this.formData.name}`;
                 }
             }
         }

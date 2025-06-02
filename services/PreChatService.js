@@ -140,7 +140,16 @@ class PreChatService {
             
             const session = new PreChatForm({
                 sessionId,
-                formData,
+                fingerprint: formData.fingerprint,
+                formData: {
+                    name: formData.name,
+                    contactInfo: formData.contactInfo,
+                    position: formData.position,
+                    industry: formData.industry,
+                    budget: formData.budget,
+                    preferredChannels: formData.preferredChannels,
+                    timeline: formData.timeline
+                },
                 status: 'chat_active',
                 chatHistory: [{
                     role: 'system',
@@ -184,6 +193,9 @@ class PreChatService {
                     ...metadata
                 }
             });
+
+            // Обновляем время последней активности
+            session.lastActivity = new Date();
 
             await session.save();
             return true;
@@ -429,6 +441,33 @@ ${stageGuidance}
         } catch (error) {
             console.error('Ошибка получения аналитики:', error);
             return null;
+        }
+    }
+
+    // Поиск существующей активной сессии по fingerprint
+    async findSessionByFingerprint(fingerprint) {
+        try {
+            const session = await PreChatForm.findOne({
+                fingerprint: fingerprint,
+                status: { $in: ['chat_active', 'form_pending'] } // Ищем активные сессии
+            }).sort({ lastActivity: -1 }); // Сортируем по последней активности
+            
+            return session;
+        } catch (error) {
+            console.error('Ошибка поиска сессии по fingerprint:', error);
+            return null;
+        }
+    }
+    
+    // Обновление времени последней активности
+    async updateLastActivity(sessionId) {
+        try {
+            await PreChatForm.findOneAndUpdate(
+                { sessionId },
+                { lastActivity: new Date() }
+            );
+        } catch (error) {
+            console.error('Ошибка обновления активности:', error);
         }
     }
 }

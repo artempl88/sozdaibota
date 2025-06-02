@@ -2136,3 +2136,50 @@ async function callOpenAIWithPrompt(messages) {
 
 // Создаем экземпляр сервиса
 const preChatService = new PreChatService();
+
+// Проверка существующей сессии по fingerprint
+app.post('/api/check-session', async (req, res) => {
+    try {
+        const { fingerprint } = req.body;
+        
+        if (!fingerprint) {
+            return res.status(400).json({
+                success: false,
+                error: 'Fingerprint обязателен'
+            });
+        }
+
+        // Ищем существующую сессию
+        const existingSession = await preChatService.findSessionByFingerprint(fingerprint);
+        
+        if (existingSession) {
+            console.log(`🔍 Найдена существующая сессия для fingerprint: ${fingerprint}`);
+            
+            // Обновляем время последней активности
+            await preChatService.updateLastActivity(existingSession.sessionId);
+            
+            res.json({
+                success: true,
+                sessionFound: true,
+                sessionId: existingSession.sessionId,
+                formData: existingSession.formData,
+                status: existingSession.status,
+                leadScore: existingSession.leadScore
+            });
+        } else {
+            console.log(`📝 Новый пользователь с fingerprint: ${fingerprint}`);
+            
+            res.json({
+                success: true,
+                sessionFound: false
+            });
+        }
+        
+    } catch (error) {
+        console.error('Ошибка проверки сессии:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка проверки сессии'
+        });
+    }
+});

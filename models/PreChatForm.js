@@ -7,6 +7,11 @@ const preChatFormSchema = new mongoose.Schema({
         unique: true,
         index: true
     },
+    fingerprint: {
+        type: String,
+        required: true,
+        index: true
+    },
     formData: {
         name: {
             type: String,
@@ -90,12 +95,17 @@ const preChatFormSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
+    },
+    lastActivity: {
+        type: Date,
+        default: Date.now
     }
 });
 
 // Middleware для обновления updatedAt
 preChatFormSchema.pre('save', function(next) {
     this.updatedAt = new Date();
+    this.lastActivity = new Date();
     next();
 });
 
@@ -104,5 +114,7 @@ preChatFormSchema.index({ sessionId: 1 });
 preChatFormSchema.index({ createdAt: -1 });
 preChatFormSchema.index({ status: 1 });
 preChatFormSchema.index({ leadScore: -1 });
+preChatFormSchema.index({ fingerprint: 1, status: 1 });
+preChatFormSchema.index({ lastActivity: 1 });
 
 module.exports = mongoose.model('PreChatForm', preChatFormSchema); 
