@@ -898,7 +898,6 @@
             overflow-x: auto;
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
             font-size: 0.85rem;
-            line-height: 1.4;
         }
 
         .gpt-message.user pre {
@@ -1313,6 +1312,241 @@
             background: linear-gradient(135deg, #00C851, #007E33) !important;
             transform: scale(1.05);
         }
+
+        /* ===== СТИЛИ ДЛЯ БЫСТРОЙ АНКЕТЫ ===== */
+        .pre-chat-form {
+            padding: 1.5rem;
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .form-header h3 {
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .form-header p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+
+        .form-group input[type="text"],
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s ease;
+            background: white;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        .form-group input[type="text"]:nth-child(3) {
+            margin-top: 0.5rem;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .checkbox-label:hover {
+            background-color: #f8fafc;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkmark {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #e2e8f0;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+            position: relative;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + .checkmark {
+            background-color: var(--primary-blue);
+            border-color: var(--primary-blue);
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .submit-form-btn {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            font-family: 'Manrope', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+            box-shadow: var(--shadow);
+            width: 100%;
+        }
+
+        .submit-form-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .submit-form-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-form-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Loading состояние для формы */
+        .form-loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+            animation: loading-shimmer 1.5s infinite;
+        }
+
+        @keyframes loading-shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) {
+            .gpt-chat {
+                width: calc(100vw - 40px);
+                right: 20px;
+                height: 70vh;
+                max-height: 600px;
+            }
+
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group {
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Стили для индикатора печати */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #64748b;
+            border-radius: 16px;
+            border-bottom-left-radius: 6px;
+            max-width: 85%;
+            align-self: flex-start;
+            animation: messageSlideIn 0.3s ease forwards;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #94a3b8;
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1567,10 +1801,104 @@
                 </div>
                 <button class="gpt-close" id="gptClose">×</button>
             </div>
-            <div class="gpt-messages" id="gptMessages">
+            
+            <!-- Форма быстрой анкеты -->
+            <div class="pre-chat-form" id="preChatForm">
+                <div class="form-header">
+                    <h3>🚀 Быстрая анкета</h3>
+                    <p>Ответьте на несколько вопросов для персонализированной консультации</p>
+                </div>
+                
+                <form id="quickSurveyForm">
+                    <div class="form-group">
+                        <label for="userName">Имя и контактные данные *</label>
+                        <input type="text" id="userName" name="name" required placeholder="Введите ваше имя">
+                        <input type="text" id="userContact" name="contactInfo" required placeholder="Телефон или email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userPosition">Должность в компании *</label>
+                        <input type="text" id="userPosition" name="position" required placeholder="Например: Директор, Менеджер">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userIndustry">Отрасль деятельности *</label>
+                        <select id="userIndustry" name="industry" required>
+                            <option value="">Выберите отрасль</option>
+                            <option value="E-commerce / Интернет-магазин">E-commerce / Интернет-магазин</option>
+                            <option value="Услуги (салоны, сервисы)">Услуги (салоны, сервисы)</option>
+                            <option value="Образование">Образование</option>
+                            <option value="Недвижимость">Недвижимость</option>
+                            <option value="Медицина / Здоровье">Медицина / Здоровье</option>
+                            <option value="Финансы / Банки">Финансы / Банки</option>
+                            <option value="Производство">Производство</option>
+                            <option value="Логистика / Доставка">Логистика / Доставка</option>
+                            <option value="HoReCa (кафе, рестораны)">HoReCa (кафе, рестораны)</option>
+                            <option value="IT / Технологии">IT / Технологии</option>
+                            <option value="Другое">Другое</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userBudget">Планируемый бюджет *</label>
+                        <select id="userBudget" name="budget" required>
+                            <option value="">Выберите бюджет</option>
+                            <option value="до 20 000₽">до 20 000₽</option>
+                            <option value="20 000 - 50 000₽">20 000 - 50 000₽</option>
+                            <option value="50 000 - 100 000₽">50 000 - 100 000₽</option>
+                            <option value="100 000 - 200 000₽">100 000 - 200 000₽</option>
+                            <option value="свыше 200 000₽">свыше 200 000₽</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Предпочтительные каналы связи *</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="Telegram">
+                                <span class="checkmark"></span>
+                                Telegram
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="Email">
+                                <span class="checkmark"></span>
+                                Email
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="Телефон">
+                                <span class="checkmark"></span>
+                                Телефон
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="WhatsApp">
+                                <span class="checkmark"></span>
+                                WhatsApp
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userTimeline">Желаемые сроки реализации *</label>
+                        <select id="userTimeline" name="timeline" required>
+                            <option value="">Выберите сроки</option>
+                            <option value="срочно (1-3 дня)">срочно (1-3 дня)</option>
+                            <option value="быстро (неделя)">быстро (неделя)</option>
+                            <option value="стандартно (2-3 недели)">стандартно (2-3 недели)</option>
+                            <option value="не спешим (месяц+)">не спешим (месяц+)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="submit-form-btn">
+                        🚀 Начать консультацию
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Чат (скрыт по умолчанию) -->
+            <div class="gpt-messages" id="gptMessages" style="display: none;">
                 <!-- Messages will be added here -->
             </div>
-            <div class="gpt-input-area">
+            <div class="gpt-input-area" id="gptInputArea" style="display: none;">
                 <div class="input-wrapper" style="display: flex; gap: 0.5rem; align-items: center;">
                     <input type="text" class="gpt-input" id="gptInput" placeholder="Напишите ваш ответ..." style="flex: 1;">
                     <button id="sendButton" title="Отправить сообщение">📤</button>
@@ -1732,24 +2060,21 @@
             typeMessage(botMessage, originalText, 30);
         }, 2000);
 
-        // GPT Assistant Logic with OpenAI Integration
+        // GPT Assistant Logic with Pre-Chat Form Integration
         class GPTAssistant {
             constructor() {
-                this.currentStep = 0;
-                this.userData = {};
-                this.suggestions = [];
+                this.sessionId = null;
                 this.isActive = false;
                 this.conversationHistory = [];
+                this.formData = null;
+                this.isFormMode = true; // Начинаем с формы
                 
-                // API Configuration (В продакшене эти данные должны быть на сервере!)
-                // Конфигурация для работы через сервер
+                // API Configuration
                 this.apiConfig = {
-                    endpoint: '/api/gpt-assistant',
-                    voiceEndpoint: '/api/voice-message',
-                    specEndpoint: '/api/generate-specification'
+                    formEndpoint: '/api/pre-chat-form',
+                    messageEndpoint: '/api/pre-chat-message',
+                    historyEndpoint: '/api/pre-chat-history'
                 };
-                
-                this.isFormulationMode = false;
 
                 this.init();
             }
@@ -1757,135 +2082,43 @@
             init() {
                 const toggle = document.getElementById('gptToggle');
                 const close = document.getElementById('gptClose');
+                const form = document.getElementById('quickSurveyForm');
                 const input = document.getElementById('gptInput');
                 const sendButton = document.getElementById('sendButton');
                 
                 toggle.addEventListener('click', () => this.toggleChat());
                 close.addEventListener('click', () => this.closeChat());
                 
-                // Обработчик Enter в поле ввода
+                // Обработчик отправки формы
+                form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+                
+                // Обработчики чата (активируются после заполнения формы)
                 input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === 'Enter' && !e.shiftKey && !this.isFormMode) {
                         e.preventDefault();
                         this.handleInput(input.value);
                         input.value = '';
                     }
                 });
                 
-                // Обработчик кнопки отправки
                 sendButton.addEventListener('click', () => {
-                    const inputValue = input.value.trim();
-                    if (inputValue) {
-                        this.handleInput(inputValue);
-                        input.value = '';
+                    if (!this.isFormMode) {
+                        const inputValue = input.value.trim();
+                        if (inputValue) {
+                            this.handleInput(inputValue);
+                            input.value = '';
+                        }
                     }
                 });
                 
-                // Обработчик изменения input для активации кнопки отправки
+                // Активация кнопки отправки
                 input.addEventListener('input', () => {
-                    if (input.value.trim()) {
+                    if (input.value.trim() && !this.isFormMode) {
                         sendButton.classList.add('active');
                     } else {
                         sendButton.classList.remove('active');
                     }
                 });
-                
-                // Preload system
-                this.initializeConversation();
-            }
-            
-            async initializeConversation() {
-                this.conversationHistory = [
-                    {
-                        role: "assistant", 
-                        content: "Привет! 👋 Я GPT-помощник для создания ТЗ на бота. Расскажи, для какого бизнеса создаем бота?"
-                    }
-                ];
-            }
-            
-            async callOpenAI(userMessage) {
-                try {
-                    const response = await fetch(this.apiConfig.endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            message: userMessage,
-                            conversation: this.conversationHistory,
-                            sessionId: this.sessionId
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (data.success && data.message) {
-                        return data.message;
-                    } else if (data.quickTask) {
-                        // Обработка быстрого ответа
-                        this.currentTask = data.quickTask;
-                        return data.message;
-                    } else {
-                        throw new Error(data.error || 'Нет ответа от сервера');
-                    }
-                } catch (error) {
-                    console.error('Ошибка вызова API:', error);
-                    return this.getFallbackResponse(userMessage);
-                }
-            }
-            
-            simulateAPIResponse(payload) {
-                // Умная имитация ответов на основе контекста
-                const userInput = payload.messages[payload.messages.length - 1].content.toLowerCase();
-                
-                const responses = {
-                    'интернет': 'Отлично! Интернет-магазин. Какие товары продаете? Нужен ли каталог с корзиной и оплатой?',
-                    'образован': 'Супер! Образовательная сфера. Онлайн-курсы, школа или университет? Нужна ли система записи на занятия?',
-                    'услуг': 'Понял! Сфера услуг. Какие именно услуги? Нужна ли запись клиентов и напоминания?',
-                    'недвижим': 'Ясно! Недвижимость. Продажа или аренда? Нужен ли поиск объектов с фильтрами?',
-                    'заказ': 'Хорошо! Прием заказов - это важно. Нужны ли корзина, расчет стоимости и статусы заказов?',
-                    'вопрос': 'Понятно! FAQ-бот. Какие вопросы чаще всего задают клиенты? Нужна ли переадресация к менеджеру?',
-                    'запис': 'Отлично! Система записи. На какие услуги записываем? Нужен ли календарь и напоминания?',
-                    'заявк': 'Супер! Сбор заявок. Какую информацию собираем? Email, телефон, описание задачи?',
-                    'продаж': 'Ясно! Продажи через бота. Какой товар? Нужны ли каталог, корзина и онлайн-оплата?'
-                };
-                
-                for (let key in responses) {
-                    if (userInput.includes(key)) {
-                        return {
-                            choices: [{
-                                message: {
-                                    content: responses[key]
-                                }
-                            }]
-                        };
-                    }
-                }
-                
-                // Универсальный ответ
-                return {
-                    choices: [{
-                        message: {
-                            content: "Интересно! Расскажите подробнее - это поможет мне лучше понять ваши потребности и предложить оптимальное решение."
-                        }
-                    }]
-                };
-            }
-            
-            getFallbackResponse(userMessage) {
-                // Резервные ответы при недоступности API
-                const fallbacks = [
-                    "Понял вас! Давайте разберем эту задачу подробнее.",
-                    "Отличная идея! Какие еще требования у вас есть?",
-                    "Это важная функция. Что еще должен уметь ваш бот?",
-                    "Хорошо! Нужны ли дополнительные интеграции?"
-                ];
-                
-                return fallbacks[Math.floor(Math.random() * fallbacks.length)];
             }
             
             toggleChat() {
@@ -1893,7 +2126,6 @@
                 if (!this.isActive) {
                     chat.classList.add('active');
                     this.isActive = true;
-                    this.startConversation();
                 } else {
                     chat.classList.remove('active');
                     this.isActive = false;
@@ -1901,1144 +2133,231 @@
             }
             
             closeChat() {
-                document.getElementById('gptChat').classList.remove('active');
+                const chat = document.getElementById('gptChat');
+                chat.classList.remove('active');
                 this.isActive = false;
             }
             
-            startConversation() {
-                this.addMessage('assistant', 
-                    '👋 Привет! Я помогу создать идеального Telegram-бота для вашего бизнеса.\n\n' +
-                    '🎯 У меня есть два способа работы:\n\n' +
-                    '1️⃣ **Быстрый старт** - выберите готовое решение для вашей ниши\n' +
-                    '2️⃣ **Индивидуальный подход** - опишите задачу своими словами\n\n' +
-                    'Как вам удобнее?'
-                );
+            async handleFormSubmit(e) {
+                e.preventDefault();
                 
-                this.showQuickOptions([
-                    '🛒 Магазин',
-                    '📅 Запись',
-                    '🚚 Доставка',
-                    '🎓 Обучение',
-                    '💬 Консультации'
-                ]);
-            }
-            
-            addMessage(type, text, delay = 0) {
-                setTimeout(() => {
-                    const messagesContainer = document.getElementById('gptMessages');
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = `gpt-message ${type}`;
-                    
-                    // Обрабатываем форматирование
-                    const formattedText = this.formatMessage(text);
-                    messageDiv.innerHTML = formattedText;
-                    
-                    messagesContainer.appendChild(messageDiv);
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    
-                    // Сохраняем в историю
-                    this.conversationHistory.push({
-                        role: type === 'user' ? 'user' : 'assistant',
-                        content: text
-                    });
-                }, delay);
-            }
-            
-            formatMessage(text) {
-                // Экранируем HTML теги кроме разрешенных
-                let formatted = text
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
+                const formData = new FormData(e.target);
+                const submitBtn = e.target.querySelector('.submit-form-btn');
                 
-                // Обрабатываем markdown-подобное форматирование
-                formatted = formatted
-                    // Жирный текст **text** или __text__
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/__(.*?)__/g, '<strong>$1</strong>')
-                    
-                    // Курсив *text* или _text_
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/_(.*?)_/g, '<em>$1</em>')
-                    
-                    // Код `code`
-                    .replace(/`([^`]+)`/g, '<code>$1</code>')
-                    
-                    // Заголовки
-                    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                    
-                    // Ссылки [text](url)
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-                    
-                    // Горизонтальные линии
-                    .replace(/^---$/gim, '<hr>')
-                    .replace(/^\* \* \*$/gim, '<hr>')
-                    
-                    // Подсветка важного текста :::highlight:::
-                    .replace(/:::([^:]+):::/g, '<div class="highlight">$1</div>')
-                    
-                    // Переносы строк
-                    .replace(/\n\n/g, '</p><p>')
-                    .replace(/\n/g, '<br>');
+                // Собираем данные формы
+                const data = {
+                    name: formData.get('name'),
+                    contactInfo: formData.get('contactInfo'),
+                    position: formData.get('position'),
+                    industry: formData.get('industry'),
+                    budget: formData.get('budget'),
+                    preferredChannels: formData.getAll('preferredChannels'),
+                    timeline: formData.get('timeline')
+                };
                 
-                // Обрабатываем списки
-                formatted = this.formatLists(formatted);
-                
-                // Обертываем в параграфы если нет других блочных элементов
-                if (!formatted.includes('<h') && !formatted.includes('<div') && !formatted.includes('<ul') && !formatted.includes('<ol')) {
-                    formatted = `<p>${formatted}</p>`;
+                // Валидация на клиенте
+                if (!this.validateFormData(data)) {
+                    return;
                 }
                 
-                return formatted;
-            }
-            
-            formatLists(text) {
-                // Обрабатываем ненумерованные списки
-                text = text.replace(/^[\s]*[-*+]\s+(.+)$/gm, '<li>$1</li>');
-                text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+                // Показываем loading состояние
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '⏳ Обрабатываем...';
+                e.target.classList.add('form-loading');
                 
-                // Обрабатываем нумерованные списки  
-                text = text.replace(/^[\s]*\d+\.\s+(.+)$/gm, '<li>$1</li>');
-                
-                // Группируем списки правильно
-                text = text.replace(/(<li>.*?<\/li>)(\s*<li>.*?<\/li>)+/gs, function(match) {
-                    if (match.includes('•') || match.includes('-') || match.includes('*')) {
-                        return `<ul>${match}</ul>`;
+                try {
+                    const response = await fetch(this.apiConfig.formEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.sessionId = result.sessionId;
+                        this.formData = data;
+                        
+                        // Переключаемся в режим чата
+                        this.switchToChatMode(result.welcomeMessage);
+                        
                     } else {
-                        return `<ol>${match}</ol>`;
+                        throw new Error(result.error || 'Ошибка отправки формы');
                     }
-                });
-                
-                return text;
+                    
+                } catch (error) {
+                    console.error('Ошибка отправки формы:', error);
+                    this.showError('Произошла ошибка. Попробуйте еще раз.');
+                    
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '🚀 Начать консультацию';
+                    e.target.classList.remove('form-loading');
+                }
             }
             
-            showTyping() {
+            validateFormData(data) {
+                // Проверяем обязательные поля
+                const required = ['name', 'contactInfo', 'position', 'industry', 'budget', 'timeline'];
+                for (let field of required) {
+                    if (!data[field] || data[field].trim() === '') {
+                        this.showError(`Заполните поле "${this.getFieldName(field)}"`);
+                        return false;
+                    }
+                }
+                
+                // Проверяем каналы связи
+                if (!data.preferredChannels || data.preferredChannels.length === 0) {
+                    this.showError('Выберите хотя бы один канал связи');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            getFieldName(field) {
+                const names = {
+                    'name': 'Имя',
+                    'contactInfo': 'Контактные данные',
+                    'position': 'Должность',
+                    'industry': 'Отрасль',
+                    'budget': 'Бюджет',
+                    'timeline': 'Сроки'
+                };
+                return names[field] || field;
+            }
+            
+            showError(message) {
+                // Можно добавить более красивое отображение ошибок
+                alert(message);
+            }
+            
+            switchToChatMode(welcomeMessage) {
+                // Скрываем форму
+                document.getElementById('preChatForm').style.display = 'none';
+                
+                // Показываем чат
+                document.getElementById('gptMessages').style.display = 'flex';
+                document.getElementById('gptInputArea').style.display = 'block';
+                
+                // Меняем режим
+                this.isFormMode = false;
+                
+                // Добавляем приветственное сообщение
+                this.addMessage('assistant', welcomeMessage);
+                
+                // Меняем заголовок
+                document.querySelector('.gpt-title').innerHTML = `💬 Консультация с ${this.formData.name}`;
+            }
+            
+            async handleInput(userMessage) {
+                if (!this.sessionId || this.isFormMode) {
+                    return;
+                }
+                
+                // Добавляем сообщение пользователя
+                this.addMessage('user', userMessage);
+                
+                // Показываем индикатор печати
+                this.showTypingIndicator();
+                
+                try {
+                    const response = await fetch(this.apiConfig.messageEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            sessionId: this.sessionId,
+                            message: userMessage
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    this.hideTypingIndicator();
+                    
+                    if (result.success) {
+                        this.addMessage('assistant', result.message);
+                        
+                        // Обновляем лид-скор если есть
+                        if (result.leadScore) {
+                            console.log('Lead Score:', result.leadScore);
+                        }
+                        
+                    } else {
+                        throw new Error(result.error || 'Ошибка отправки сообщения');
+                    }
+                    
+                } catch (error) {
+                    console.error('Ошибка отправки сообщения:', error);
+                    this.hideTypingIndicator();
+                    this.addMessage('assistant', 'Извините, произошла ошибка. Попробуйте еще раз.');
+                }
+            }
+            
+            addMessage(role, content) {
+                const messagesContainer = document.getElementById('gptMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `gpt-message ${role}`;
+                
+                // Форматируем сообщение (поддержка markdown-подобного синтаксиса)
+                const formattedContent = this.formatMessage(content);
+                messageDiv.innerHTML = formattedContent;
+                
+                messagesContainer.appendChild(messageDiv);
+                
+                // Автоскролл вниз
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            formatMessage(content) {
+                // Простое форматирование текста
+                return content
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n/g, '<br>');
+            }
+            
+            showTypingIndicator() {
                 const messagesContainer = document.getElementById('gptMessages');
                 const typingDiv = document.createElement('div');
-                typingDiv.className = 'gpt-typing';
+                typingDiv.className = 'gpt-message assistant typing-indicator';
                 typingDiv.id = 'typingIndicator';
-                typingDiv.innerHTML = `
-                    🤖 Обрабатываю ответ...
-                    <div class="typing-dots">
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                    </div>
-                `;
+                typingDiv.innerHTML = '<span></span><span></span><span></span>';
+                
                 messagesContainer.appendChild(typingDiv);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
             
-            hideTyping() {
-                const typingDiv = document.getElementById('typingIndicator');
-                if (typingDiv) {
-                    typingDiv.remove();
+            hideTypingIndicator() {
+                const indicator = document.getElementById('typingIndicator');
+                if (indicator) {
+                    indicator.remove();
                 }
             }
             
-            showQuickOptions(options) {
-                const buttonsContainer = document.getElementById('gptButtons');
-                buttonsContainer.innerHTML = '';
-                
-                options.forEach(option => {
-                    const button = document.createElement('button');
-                    button.className = 'gpt-option';
-                    button.textContent = option;
-                    button.addEventListener('click', () => this.handleOptionClick(option));
-                    buttonsContainer.appendChild(button);
-                });
-            }
-            
-            handleOptionClick(option) {
-                document.getElementById('gptButtons').innerHTML = '';
-                
-                if (option.includes('Нужна помощь с формулировкой')) {
-                    this.startCustomFormulation();
-                } else if (option.includes('Оформить заказ')) {
-                    this.processOrder();
-                } else if (option.includes('Добавить функции')) {
-                    this.showAdditionalFeatures();
-                } else if (option.includes('Другая задача')) {
-                    this.resetConversation();
-                } else {
-                    this.handleInput(option);
-                }
-            }
-
-            // Упрощенный метод для помощи с формулировкой
-            startCustomFormulation() {
-                this.addMessage('user', '🤔 Нужна помощь с формулировкой');
-                
-                // Устанавливаем специальный режим
-                this.isFormulationMode = true;
-                
-                // НЕ показываем быстрые кнопки - даем полную свободу
-                document.getElementById('gptButtons').innerHTML = '';
-                
-                // Фокус на поле ввода
-                setTimeout(() => {
-                    document.getElementById('gptInput').focus();
-                }, 100);
-                
-                // Отправляем на сервер с пометкой о режиме
-                this.handleInput('FORMULATION_MODE_START');
-            }
-            
-            async handleInput(input) {
-                if (!input.trim()) return;
-                
-                // Для режима формулировки всё идет на сервер
-                if (this.isFormulationMode && input !== 'FORMULATION_MODE_START') {
-                    this.addMessage('user', input);
-                }
-                
-                // Быстрый анализ ТОЛЬКО для стандартных кнопок
-                if (!this.isFormulationMode && input.length < 30) {
-                    const quickMatch = this.quickAnalyze(input);
-                    if (quickMatch) {
-                        const template = this.quickTemplates[quickMatch];
-                        
-                        this.addMessage('user', input);
-                        this.showTyping();
-                        
-                        // Мгновенный предварительный ответ
-                        setTimeout(() => {
-                            this.hideTyping();
-                            this.addMessage('assistant', 
-                                `🎯 Отлично! Я понял - вам нужен: **${template.title}**\n\n` +
-                                `${template.preview}\n\n` +
-                                `⏳ Загружаю детальное решение с расчетом стоимости...`
-                            );
-                            
-                            // Запрос полных данных с сервера
-                            this.loadFullSolution(input);
-                        }, 500);
-                        
-                        return;
-                    }
-                }
-                
-                // Всё остальное - на сервер
-                this.showTyping();
+            async loadChatHistory() {
+                if (!this.sessionId) return;
                 
                 try {
-                    const response = await fetch(this.apiConfig.endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            message: input,
-                            conversation: this.conversationHistory,
-                            sessionId: this.sessionId || 'default',
-                            mode: this.isFormulationMode ? 'formulation' : 'normal'
-                        })
-                    });
+                    const response = await fetch(`${this.apiConfig.historyEndpoint}/${this.sessionId}`);
+                    const result = await response.json();
                     
-                    const data = await response.json();
-                    this.hideTyping();
-                    
-                    if (data.message) {
-                        this.addMessage('assistant', data.message);
-                    }
-                    
-                    if (data.quickReplies) {
-                        this.showQuickOptions(data.quickReplies);
-                    }
-                    
-                    if (data.estimate) {
-                        // Показываем красивую смету
-                        this.showEstimateSummary(data.estimate);
-                    }
-                    
-                } catch (error) {
-                    console.error('API Error:', error);
-                    this.hideTyping();
-                    this.addMessage('assistant', 'Произошла ошибка. Попробуйте еще раз.');
-                }
-            }
-            
-            analyzeResponseAndShowOptions(response, userInput) {
-                const lowerResponse = response.toLowerCase();
-                const lowerInput = userInput.toLowerCase();
-                
-                // Умное определение контекста для показа опций
-                if (lowerResponse.includes('товар') || lowerResponse.includes('продае')) {
-                    this.showQuickOptions([
-                        "📱 Электроника", 
-                        "👕 Одежда", 
-                        "🍔 Еда/напитки", 
-                        "🏠 Дом/сад", 
-                        "💄 Красота"
-                    ]);
-                } else if (lowerResponse.includes('услуг') || lowerResponse.includes('запис')) {
-                    this.showQuickOptions([
-                        "💇 Салон красоты", 
-                        "🏥 Медицина", 
-                        "🔧 Ремонт", 
-                        "💼 Консультации", 
-                        "🚗 Автосервис"
-                    ]);
-                } else if (lowerResponse.includes('курс') || lowerResponse.includes('образован')) {
-                    this.showQuickOptions([
-                        "💻 IT-курсы", 
-                        "🎨 Творчество", 
-                        "🏫 Школа", 
-                        "📚 Университет", 
-                        "🧘 Тренинги"
-                    ]);
-                } else if (lowerResponse.includes('интеграц') || lowerResponse.includes('подключ')) {
-                    this.showQuickOptions([
-                        "✅ Да, нужна оплата", 
-                        "✅ Да, нужна CRM", 
-                        "✅ Да, нужна почта", 
-                        "❌ Пока не нужно"
-                    ]);
-                } else if (this.isReadyForSummary()) {
-                    // Если собрали достаточно информации - показываем кнопку генерации ТЗ
-                    setTimeout(() => {
-                        this.showFinalOptions();
-                    }, 1000);
-                }
-            }
-            
-            isReadyForSummary() {
-                // Проверяем, достаточно ли информации для создания ТЗ
-                const messageCount = this.conversationHistory.length;
-                const hasBusinessType = this.conversationHistory.some(msg => 
-                    msg.content && (
-                        msg.content.includes('магазин') || 
-                        msg.content.includes('образован') || 
-                        msg.content.includes('услуг')
-                    )
-                );
-                
-                return messageCount >= 8 && hasBusinessType;
-            }
-            
-            showFinalOptions() {
-                this.addMessage('assistant', "🎯 Отлично! У меня есть достаточно информации для создания ТЗ. Хотите добавить что-то еще или приступим к формированию документа?");
-                
-                this.showQuickOptions([
-                    "📋 Создать ТЗ сейчас",
-                    "💡 Добавить функции", 
-                    "🔄 Изменить требования"
-                ]);
-            }
-            
-            async generateSpecFromConversation() {
-                this.showTyping();
-                
-                try {
-                    // Запрос к GPT для создания структурированного ТЗ
-                    const summaryPrompt = `На основе нашего диалога создай структурированное техническое задание для Telegram-бота. 
-                    Верни ответ в формате JSON:
-                    {
-                        "title": "Название проекта",
-                        "business_type": "Тип бизнеса", 
-                        "main_tasks": ["Основная задача 1", "Основная задача 2"],
-                        "target_audience": "Целевая аудитория",
-                        "key_features": ["Функция 1", "Функция 2", "Функция 3"],
-                        "integrations": ["Интеграция 1", "Интеграция 2"],
-                        "ai_level": "Уровень ИИ"
-                    }`;
-                    
-                    const response = await this.callOpenAI(summaryPrompt);
-                    this.hideTyping();
-                    
-                    try {
-                        // Пытаемся распарсить JSON
-                        const spec = JSON.parse(response);
-                        this.currentSpec = spec;
-                        this.showGeneratedSpec(spec);
-                    } catch (e) {
-                        // Если не JSON, создаем ТЗ из текста
-                        this.createSpecFromText(response);
-                    }
-                    
-                } catch (error) {
-                    this.hideTyping();
-                    this.addMessage('assistant', "Создаю ТЗ на основе нашего диалога...");
-                    setTimeout(() => {
-                        this.createFallbackSpec();
-                    }, 1000);
-                }
-            }
-            
-            createSpecFromText(text) {
-                // Создаем ТЗ из текстового ответа GPT
-                this.currentSpec = {
-                    title: "Telegram-бот для вашего бизнеса",
-                    description: text,
-                    features: this.extractFeaturesFromConversation()
-                };
-                
-                this.showGeneratedSpec(this.currentSpec);
-            }
-            
-            createFallbackSpec() {
-                // Резервное создание ТЗ на основе диалога
-                const features = this.extractFeaturesFromConversation();
-                
-                this.currentSpec = {
-                    title: "Индивидуальный Telegram-бот",
-                    business_type: "По требованиям клиента",
-                    main_tasks: features.slice(0, 3),
-                    target_audience: "Клиенты компании",
-                    key_features: features,
-                    integrations: ["По требованию"],
-                    ai_level: "Адаптивный"
-                };
-                
-                this.showGeneratedSpec(this.currentSpec);
-            }
-            
-            extractFeaturesFromConversation() {
-                // Извлекаем функции из истории диалога
-                const features = [];
-                const conversation = this.conversationHistory.map(msg => msg.content).join(' ').toLowerCase();
-                
-                const featureMap = {
-                    'заказ': 'Прием и обработка заказов',
-                    'оплат': 'Онлайн-оплата',
-                    'каталог': 'Каталог товаров/услуг',
-                    'корзин': 'Корзина покупок',
-                    'запис': 'Система записи',
-                    'календар': 'Календарь и напоминания',
-                    'вопрос': 'База знаний FAQ',
-                    'поддержк': 'Техническая поддержка',
-                    'уведомлен': 'Push-уведомления',
-                    'аналитик': 'Аналитика и отчеты'
-                };
-                
-                for (let keyword in featureMap) {
-                    if (conversation.includes(keyword)) {
-                        features.push(featureMap[keyword]);
-                    }
-                }
-                
-                return features.length > 0 ? features : ['Автоматизация диалогов', 'Обработка запросов', 'Интеграция с системами'];
-            }
-            
-            showGeneratedSpec(spec) {
-                const messagesContainer = document.getElementById('gptMessages');
-                const specDiv = document.createElement('div');
-                specDiv.className = 'gpt-summary';
-                
-                specDiv.innerHTML = `
-                    <h4>📋 ${spec.title || 'Техническое задание'}</h4>
-                    ${spec.business_type ? `<p><strong>Тип бизнеса:</strong> ${spec.business_type}</p>` : ''}
-                    ${spec.target_audience ? `<p><strong>Целевая аудитория:</strong> ${spec.target_audience}</p>` : ''}
-                    ${spec.ai_level ? `<p><strong>Уровень ИИ:</strong> ${spec.ai_level}</p>` : ''}
-                    
-                    ${spec.main_tasks && spec.main_tasks.length > 0 ? `
-                        <p><strong>Основные задачи:</strong></p>
-                        <ul>
-                            ${spec.main_tasks.map(task => `<li>${task}</li>`).join('')}
-                        </ul>
-                    ` : ''}
-                    
-                    ${spec.key_features && spec.key_features.length > 0 ? `
-                        <p><strong>Ключевые функции:</strong></p>
-                        <ul>
-                            ${spec.key_features.map(feature => `<li>${feature}</li>`).join('')}
-                        </ul>
-                    ` : ''}
-                    
-                    ${spec.integrations && spec.integrations.length > 0 && spec.integrations[0] !== 'По требованию' ? `
-                        <p><strong>Интеграции:</strong></p>
-                        <ul>
-                            ${spec.integrations.map(integration => `<li>${integration}</li>`).join('')}
-                        </ul>
-                    ` : ''}
-                    
-                    ${spec.description ? `<p><strong>Описание:</strong> ${spec.description}</p>` : ''}
-                `;
-                
-                messagesContainer.appendChild(specDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-                // Показываем финальные опции
-                setTimeout(() => {
-                    this.showFinalButtons();
-                }, 1000);
-            }
-            
-            showFinalButtons() {
-                this.addMessage('assistant', "💡 Хотите добавить дополнительные функции или сразу создать PDF с заказом?");
-                
-                this.showQuickOptions([
-                    "📊 Добавить аналитику",
-                    "💳 Добавить оплату", 
-                    "🔔 Добавить уведомления",
-                    "📄 Создать PDF заказ"
-                ]);
-            }
-            
-            async handleFinalChoice(choice) {
-                if (choice.includes('PDF') || choice.includes('заказ')) {
-                    await this.generatePDF();
-                } else {
-                    // Добавляем функцию
-                    const feature = this.getFeatureFromChoice(choice);
-                    this.currentSpec.key_features.push(feature);
-                    
-                    this.addMessage('user', choice);
-                    this.addMessage('assistant', `✅ Добавил "${feature}" в ваш проект!`);
-                    
-                    setTimeout(() => {
-                        this.showFinalButtons();
-                    }, 1000);
-                }
-            }
-            
-            getFeatureFromChoice(choice) {
-                const featureMap = {
-                    'аналитик': 'Детальная аналитика и отчеты',
-                    'оплат': 'Интеграция с платежными системами',
-                    'уведомлен': 'Push-уведомления и рассылки',
-                    'многоязыч': 'Поддержка нескольких языков',
-                    'голос': 'Обработка голосовых сообщений'
-                };
-                
-                for (let key in featureMap) {
-                    if (choice.toLowerCase().includes(key)) {
-                        return featureMap[key];
-                    }
-                }
-                
-                return 'Дополнительная функция';
-            }
-            
-            async generatePDF() {
-                document.getElementById('gptButtons').innerHTML = '';
-                this.addMessage('assistant', "📄 Создаю PDF-документ с техническим заданием...");
-                
-                this.showTyping();
-                
-                setTimeout(() => {
-                    this.hideTyping();
-                    this.createPDFDocument();
-                }, 2000);
-            }
-            
-            createPDFDocument() {
-                try {
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF();
-                    
-                    // Настройка документа
-                    doc.setFont("helvetica");
-                    
-                    // Заголовок с градиентом (имитация)
-                    doc.setFontSize(24);
-                    doc.setTextColor(0, 136, 204);
-                    doc.text("ТЕХНИЧЕСКОЕ ЗАДАНИЕ", 20, 30);
-                    
-                    // Подзаголовок
-                    doc.setFontSize(18);
-                    doc.setTextColor(34, 34, 34);
-                    doc.text(`${this.currentSpec.title || 'Telegram-бот для бизнеса'}`, 20, 45);
-                    
-                    // Декоративная линия
-                    doc.setDrawColor(0, 194, 255);
-                    doc.setLineWidth(3);
-                    doc.line(20, 50, 190, 50);
-                    
-                    let yPos = 65;
-                    
-                    // Основная информация
-                    if (this.currentSpec.business_type) {
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 136, 204);
-                        doc.text("ТИП БИЗНЕСА:", 20, yPos);
-                        yPos += 8;
+                    if (result.success && result.chatHistory) {
+                        const messagesContainer = document.getElementById('gptMessages');
+                        messagesContainer.innerHTML = '';
                         
-                        doc.setFontSize(12);
-                        doc.setTextColor(34, 34, 34);
-                        doc.text(this.currentSpec.business_type, 20, yPos);
-                        yPos += 15;
-                    }
-                    
-                    if (this.currentSpec.target_audience) {
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 136, 204);
-                        doc.text("ЦЕЛЕВАЯ АУДИТОРИЯ:", 20, yPos);
-                        yPos += 8;
-                        
-                        doc.setFontSize(12);
-                        doc.setTextColor(34, 34, 34);
-                        doc.text(this.currentSpec.target_audience, 20, yPos);
-                        yPos += 15;
-                    }
-                    
-                    // Основные задачи
-                    if (this.currentSpec.main_tasks && this.currentSpec.main_tasks.length > 0) {
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 136, 204);
-                        doc.text("ОСНОВНЫЕ ЗАДАЧИ:", 20, yPos);
-                        yPos += 10;
-                        
-                        doc.setFontSize(12);
-                        doc.setTextColor(34, 34, 34);
-                        this.currentSpec.main_tasks.forEach((task, index) => {
-                            const taskText = `${index + 1}. ${task}`;
-                            const lines = doc.splitTextToSize(taskText, 170);
-                            doc.text(lines, 20, yPos);
-                            yPos += lines.length * 6;
+                        result.chatHistory.forEach(msg => {
+                            this.addMessage(msg.role, msg.content);
                         });
-                        yPos += 10;
                     }
-                    
-                    // Ключевые функции
-                    if (this.currentSpec.key_features && this.currentSpec.key_features.length > 0) {
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 136, 204);
-                        doc.text("ФУНКЦИОНАЛЬНЫЕ ТРЕБОВАНИЯ:", 20, yPos);
-                        yPos += 10;
-                        
-                        doc.setFontSize(12);
-                        doc.setTextColor(34, 34, 34);
-                        this.currentSpec.key_features.forEach((feature, index) => {
-                            const featureText = `• ${feature}`;
-                            const lines = doc.splitTextToSize(featureText, 170);
-                            doc.text(lines, 20, yPos);
-                            yPos += lines.length * 6;
-                            
-                            if (yPos > 270) {
-                                doc.addPage();
-                                yPos = 20;
-                            }
-                        });
-                        yPos += 10;
-                    }
-                    
-                    // Интеграции
-                    if (this.currentSpec.integrations && this.currentSpec.integrations.length > 0 && this.currentSpec.integrations[0] !== 'По требованию') {
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 136, 204);
-                        doc.text("НЕОБХОДИМЫЕ ИНТЕГРАЦИИ:", 20, yPos);
-                        yPos += 10;
-                        
-                        doc.setFontSize(12);
-                        doc.setTextColor(34, 34, 34);
-                        this.currentSpec.integrations.forEach((integration, index) => {
-                            doc.text(`• ${integration}`, 20, yPos);
-                            yPos += 8;
-                        });
-                        yPos += 10;
-                    }
-                    
-                    // Уровень ИИ
-                    if (this.currentSpec.ai_level) {
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 136, 204);
-                        doc.text("УРОВЕНЬ ИСКУССТВЕННОГО ИНТЕЛЛЕКТА:", 20, yPos);
-                        yPos += 8;
-                        
-                        doc.setFontSize(12);
-                        doc.setTextColor(34, 34, 34);
-                        doc.text(this.currentSpec.ai_level, 20, yPos);
-                        yPos += 20;
-                    }
-                    
-                    // Футер
-                    if (yPos > 260) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
-                    
-                    doc.setDrawColor(0, 194, 255);
-                    doc.setLineWidth(1);
-                    doc.line(20, yPos, 190, yPos);
-                    yPos += 15;
-                    
-                    doc.setFontSize(14);
-                    doc.setTextColor(0, 136, 204);
-                    doc.text("КОНТАКТНАЯ ИНФОРМАЦИЯ:", 20, yPos);
-                    yPos += 12;
-                    
-                    doc.setFontSize(12);
-                    doc.setTextColor(34, 34, 34);
-                    doc.text("📧 Email: hello@создать-бота.рф", 20, yPos);
-                    yPos += 8;
-                    doc.text("💬 Telegram: @создать_бота", 20, yPos);
-                    yPos += 8;
-                    doc.text("🌐 Сайт: https://создать-бота.рф", 20, yPos);
-                    yPos += 8;
-                    doc.text("📞 Телефон: +7 (XXX) XXX-XX-XX", 20, yPos);
-                    
-                    // Время создания
-                    doc.setFontSize(10);
-                    doc.setTextColor(102, 102, 102);
-                    doc.text(
-                        `Создано: ${new Date().toLocaleString('ru-RU')} | GPT-Помощник v2.0 | Создать Бота © 2024`, 
-                        20, 
-                        285
-                    );
-                    
-                    // Сохранение
-                    const fileName = `ТЗ_TelegramBot_${Date.now()}.pdf`;
-                    doc.save(fileName);
-                    
-                    // Показать успех
-                    this.showSuccessMessage(fileName);
-                    
                 } catch (error) {
-                    console.error('PDF Creation Error:', error);
-                    this.showErrorMessage();
+                    console.error('Ошибка загрузки истории чата:', error);
                 }
             }
-            
-            showSuccessMessage(fileName) {
-                const messagesContainer = document.getElementById('gptMessages');
-                const successDiv = document.createElement('div');
-                successDiv.className = 'gpt-summary';
-                successDiv.style.background = 'linear-gradient(135deg, rgba(0, 200, 81, 0.1), rgba(0, 194, 255, 0.1))';
-                successDiv.style.borderColor = '#00C851';
-                
-                successDiv.innerHTML = `
-                    <h4 style="color: #00C851;">🎉 PDF создан успешно!</h4>
-                    <p><strong>Файл:</strong> ${fileName}</p>
-                    <p><strong>Что дальше?</strong></p>
-                    <ul>
-                        <li>Изучим ваше ТЗ (15 минут)</li>
-                        <li>Рассчитаем точную стоимость</li>
-                        <li>Свяжемся в течение 2 часов</li>
-                        <li>Обсудим детали и начнем работу</li>
-                    </ul>
-                    <button class="generate-pdf-btn" onclick="window.scrollTo({top: document.getElementById('contact').offsetTop, behavior: 'smooth'}); gptAssistant.closeChat();" style="background: #00C851;">
-                        🚀 Обсудить проект
-                    </button>
-                `;
-                
-                messagesContainer.appendChild(successDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-            
-            showErrorMessage() {
-                this.addMessage('assistant', '❌ Произошла ошибка при создании PDF. Не переживайте - вся информация сохранена! Свяжитесь с нами, и мы вышлем готовое ТЗ на email.');
-            }
-
         }
-            
-            
-            // Добавляем новые методы в прототип
-            GPTAssistant.prototype.quickTemplates = {
-                'магазин': {
-                    title: 'E-commerce бот для интернет-магазина',
-                    preview: '🛒 Каталог, корзина, оплата + ИИ-рекомендации'
-                },
-                'запись': {
-                    title: 'Умная система записи на услуги',
-                    preview: '📅 Календарь, напоминания + аналитика загрузки'
-                },
-                'доставк': {
-                    title: 'Интеллектуальная служба доставки',
-                    preview: '🚚 Трекинг, маршрутизация + программа лояльности'
-                },
-                'обучен': {
-                    title: 'AI-powered образовательная платформа',
-                    preview: '🎓 Персональный ИИ-наставник + геймификация'
-                },
-                'консульт': {
-                    title: 'ИИ-консультант нового поколения',
-                    preview: '💬 GPT-4, квалификация лидов + мультиканальность'
-                }
-            };
-            
-            // Метод быстрого анализа на клиенте
-            GPTAssistant.prototype.quickAnalyze = function(input) {
-                const lowerInput = input.toLowerCase();
-                
-                for (let key in this.quickTemplates) {
-                    if (lowerInput.includes(key)) {
-                        return key;
-                    }
-                }
-                
-                const patterns = {
-                    'магазин': /продаж|товар|покуп|корзин|shop|store/i,
-                    'запись': /запис|брон|расписан|время|слот|услуг/i,
-                    'доставк': /доставк|курьер|привез|отправ|еда/i,
-                    'обучен': /курс|урок|студент|учен|школ/i,
-                    'консульт': /консульт|поддержк|вопрос|помощ/i
-                };
-                
-                for (let key in patterns) {
-                    if (patterns[key].test(lowerInput)) {
-                        return key;
-                    }
-                }
-                
-                return null;
-            };
-            
-            // Сохраняем оригинальный handleInput
-            const originalHandleInput = GPTAssistant.prototype.handleInput;
-            
-            // Заменяем на улучшенную версию
-            GPTAssistant.prototype.handleInput = async function(input) {
-                if (!input.trim()) return;
-                
-                // Быстрый анализ для коротких фраз
-                if (input.length < 30) {
-                    const quickMatch = this.quickAnalyze(input);
-                    if (quickMatch) {
-                        const template = this.quickTemplates[quickMatch];
-                        
-                        this.addMessage('user', input);
-                        this.showTyping();
-                        
-                        // Мгновенный предварительный ответ
-                        setTimeout(() => {
-                            this.hideTyping();
-                            this.addMessage('assistant', 
-                                `🎯 Отлично! Я понял - вам нужен: **${template.title}**\n\n` +
-                                `${template.preview}\n\n` +
-                                `⏳ Загружаю детальное решение с расчетом стоимости...`
-                            );
-                            
-                            // Запрос полных данных с сервера
-                            this.loadFullSolution(input);
-                        }, 500);
-                        
-                        return;
-                    }
-                }
-                
-                // Если не подошел быстрый анализ, используем оригинальный метод
-                originalHandleInput.call(this, input);
-            };
-            
-            // Новый метод загрузки полного решения
-            GPTAssistant.prototype.loadFullSolution = async function(input) {
-                this.showTyping();
-                
-                try {
-                    const response = await fetch(this.apiConfig.endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            message: input,
-                            conversation: this.conversationHistory,
-                            sessionId: 'session_' + Date.now()
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    this.hideTyping();
-                    
-                    if (data.quickTask) {
-                        this.showTaskSummary(data.quickTask);
-                        this.showBusinessFeatures(data.businessFeatures);
-                        
-                        this.addMessage('assistant', 
-                            '💡 Это базовое решение. Выше я добавил уникальные фишки для роста вашего бизнеса!\n\n' +
-                            'Что делаем дальше?'
-                        );
-                        
-                        this.showQuickOptions(data.quickReplies || [
-                            '✅ Оформить заказ',
-                            '➕ Добавить функции',
-                            '💬 Задать вопрос'
-                        ]);
-                    }
-                    
-                } catch (error) {
-                    console.error('Error:', error);
-                    this.hideTyping();
-                    this.addMessage('assistant', 'Произошла ошибка. Попробуйте еще раз.');
-                }
-            };
-            
-            // Метод показа задачи
-            GPTAssistant.prototype.showTaskSummary = function(task) {
-                if (!task) return;
-                
-                const messagesContainer = document.getElementById('gptMessages');
-                const taskDiv = document.createElement('div');
-                taskDiv.style.cssText = `
-                    background: linear-gradient(135deg, rgba(0, 194, 255, 0.05), rgba(132, 240, 245, 0.05));
-                    border: 2px solid rgba(0, 136, 204, 0.2);
-                    padding: 1.25rem;
-                    border-radius: 16px;
-                    margin: 1rem 0;
-                    animation: fadeInUp 0.5s ease;
-                `;
-                
-                taskDiv.innerHTML = `
-                    <h4 style="color: #0088CC; margin-bottom: 0.75rem;">📋 ${task.title}</h4>
-                    <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
-                        <div>💰 <strong>Стоимость:</strong> ${task.estimatedPrice}</div>
-                        <div>⏱️ <strong>Срок:</strong> ${task.estimatedTime}</div>
-                    </div>
-                    <p style="margin-bottom: 0.75rem;"><strong>Что будет в боте:</strong></p>
-                    <ul style="list-style: none; padding: 0;">
-                        ${task.features.map(feature => `
-                            <li style="padding: 0.5rem 0;">✓ ${feature}</li>
-                        `).join('')}
-                    </ul>
-                `;
-                
-                messagesContainer.appendChild(taskDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            };
-            
-            // Метод показа бизнес-фишек
-            GPTAssistant.prototype.showBusinessFeatures = function(features) {
-                if (!features || features.length === 0) return;
-                
-                const messagesContainer = document.getElementById('gptMessages');
-                const featuresDiv = document.createElement('div');
-                featuresDiv.style.cssText = `
-                    background: linear-gradient(135deg, rgba(0, 200, 81, 0.05), rgba(0, 194, 255, 0.05));
-                    border: 2px solid rgba(0, 200, 81, 0.2);
-                    padding: 1.25rem;
-                    border-radius: 16px;
-                    margin: 1rem 0;
-                    animation: fadeInUp 0.5s ease 0.2s both;
-                `;
-                
-                featuresDiv.innerHTML = `
-                    <h4 style="color: #00C851; margin-bottom: 0.75rem;">
-                        🚀 Дополнительные фишки для роста вашего бизнеса:
-                    </h4>
-                    ${features.map(feature => `
-                        <div style="padding: 0.75rem; margin: 0.5rem 0; background: rgba(255,255,255,0.8); 
-                                    border-radius: 12px; border-left: 4px solid #00C851;">
-                            <h5 style="margin-bottom: 0.25rem;">${feature.title}</h5>
-                            <p style="color: #666; font-size: 0.875rem; margin: 0;">
-                                ${feature.description}
-                            </p>
-                        </div>
-                    `).join('')}
-                `;
-                
-                messagesContainer.appendChild(featuresDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            };
-            
-            // Добавляем поддержку голоса
-            GPTAssistant.prototype.addVoiceSupport = function() {
-                const inputArea = document.querySelector('.gpt-input-area');
-                if (!inputArea || document.getElementById('voiceButton')) return;
-                
-                const wrapper = inputArea.querySelector('.input-wrapper');
-                if (!wrapper) return;
-                
-                const input = wrapper.querySelector('.gpt-input');
-                const sendButton = wrapper.querySelector('#sendButton');
-                
-                if (!input || !sendButton) return;
-                
-                // Создаем кнопку для голосового ввода
-                const voiceButton = document.createElement('button');
-                voiceButton.id = 'voiceButton';
-                voiceButton.innerHTML = '🎤';
-                voiceButton.title = 'Записать голосовое сообщение';
-                
-                // Проверка поддержки
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    voiceButton.addEventListener('click', () => this.toggleVoiceRecording());
-                } else {
-                    voiceButton.disabled = true;
-                    voiceButton.title = 'Голосовой ввод не поддерживается';
-                }
-                
-                wrapper.appendChild(voiceButton);
-            };
-            
-            // Метод записи голоса
-            GPTAssistant.prototype.toggleVoiceRecording = async function() {
-                if (!this.isRecording) {
-                    try {
-                        // Проверяем поддержку браузера
-                        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                            this.addMessage('assistant', '❌ Ваш браузер не поддерживает распознавание речи. Попробуйте использовать Chrome или Edge.');
-                            return;
-                        }
-
-                        // Запрашиваем доступ к микрофону
-                        const stream = await navigator.mediaDevices.getUserMedia({ 
-                            audio: {
-                                echoCancellation: true,
-                                noiseSuppression: true,
-                                autoGainControl: true
-                            }
-                        });
-                        this.startRecording(stream);
-                    } catch (error) {
-                        console.error('Microphone access error:', error);
-                        
-                        let errorMessage = '❌ Не удалось получить доступ к микрофону.\n\n';
-                        
-                        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                            errorMessage += '🔧 **Как исправить:**\n' +
-                                          '1. Нажмите на значок 🔒 в адресной строке\n' +
-                                          '2. Разрешите доступ к микрофону\n' +
-                                          '3. Обновите страницу\n\n' +
-                                          '💡 Или просто напишите текстом!';
-                        } else if (error.name === 'NotFoundError') {
-                            errorMessage += '🎤 Микрофон не найден. Проверьте подключение микрофона.';
-                        } else if (error.name === 'NotReadableError') {
-                            errorMessage += '⚠️ Микрофон занят другим приложением. Закройте другие программы, использующие микрофон.';
-                        } else {
-                            errorMessage += `Ошибка: ${error.message}\n\n💡 Попробуйте написать текстом!`;
-                        }
-                        
-                        this.addMessage('assistant', errorMessage);
-                    }
-                } else {
-                    this.stopRecording();
-                }
-            };
-            
-            GPTAssistant.prototype.startRecording = function(stream) {
-                this.mediaRecorder = new MediaRecorder(stream);
-                this.audioChunks = [];
-                this.isRecording = true;
-                
-                const voiceButton = document.getElementById('voiceButton');
-                voiceButton.classList.add('recording');
-                voiceButton.innerHTML = '⏹️';
-                
-                this.mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        this.audioChunks.push(event.data);
-                    }
-                };
-                
-                this.mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                    await this.processVoiceMessage(audioBlob);
-                    stream.getTracks().forEach(track => track.stop());
-                };
-                
-                this.mediaRecorder.start();
-                
-                // Показываем индикатор записи
-                this.addMessage('assistant', '🔴 Записываю... Говорите! Нажмите ⏹️ чтобы остановить.');
-            };
-            
-            GPTAssistant.prototype.stopRecording = function() {
-                if (this.mediaRecorder && this.isRecording) {
-                    this.isRecording = false;
-                    this.mediaRecorder.stop();
-                    
-                    const voiceButton = document.getElementById('voiceButton');
-                    voiceButton.classList.remove('recording');
-                    voiceButton.innerHTML = '🎤';
-                }
-            };
-            
-            GPTAssistant.prototype.processVoiceMessage = async function(audioBlob) {
-                this.addMessage('user', '🎤 Голосовое сообщение');
-                this.showTyping();
-                
-                try {
-                    const formData = new FormData();
-                    formData.append('audio', audioBlob, 'voice.webm');
-                    formData.append('sessionId', this.sessionId || 'session_' + Date.now());
-                    
-                    // Инициализируем conversation если не существует
-                    if (!this.conversation) {
-                        this.conversation = [];
-                    }
-                    
-                    // Добавляем контекст разговора для GPT
-                    if (this.conversation && this.conversation.length > 0) {
-                        formData.append('conversation', JSON.stringify(this.conversation));
-                    }
-                    
-                    const response = await fetch('/api/voice-message', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    this.hideTyping();
-                    
-                    if (data.success && data.transcription) {
-                        // Показываем что было распознано
-                        this.addMessage('user', `🎤 "${data.transcription}"`);
-                        
-                        // Добавляем в историю разговора
-                        this.conversation.push({
-                            role: 'user',
-                            content: data.transcription
-                        });
-                        
-                        // Показываем ответ от GPT
-                        if (data.message) {
-                            this.addMessage('assistant', data.message);
-                            
-                            // Добавляем ответ в историю
-                            this.conversation.push({
-                                role: 'assistant',
-                                content: data.message
-                            });
-                        }
-                        
-                        // Если есть быстрая задача, показываем её
-                        if (data.quickTask) {
-                            this.showTaskSummary(data.quickTask);
-                            this.showBusinessFeatures(data.businessFeatures);
-                        }
-                        
-                        // Показываем быстрые кнопки если есть
-                        if (data.quickReplies && data.quickReplies.length > 0) {
-                            this.showQuickOptions(data.quickReplies);
-                        }
-                        
-                        // Отмечаем что это голосовой ввод
-                        if (data.isVoiceInput) {
-                            console.log('✅ Голосовое сообщение успешно обработано GPT');
-                        }
-                        
-                    } else {
-                        throw new Error(data.error || 'Неизвестная ошибка');
-                    }
-                    
-                } catch (error) {
-                    console.error('Voice error:', error);
-                    this.hideTyping();
-                    this.addMessage('assistant', '❌ Не удалось обработать голосовое сообщение. Попробуйте написать текстом или повторите запись.');
-                }
-            };
-            
-            // Обновляем метод инициализации
-            const originalInit = GPTAssistant.prototype.init;
-            GPTAssistant.prototype.init = function() {
-                // Вызываем оригинальный init
-                originalInit.call(this);
-                
-                // Добавляем голосовую поддержку
-                setTimeout(() => {
-                    this.addVoiceSupport();
-                }, 1000);
-                
-                // Обновляем приветствие
-                setTimeout(() => {
-                    this.addMessage('assistant', 
-                        '⚡ Обновление! Теперь я работаю в 10 раз быстрее!\n\n' +
-                        'Просто скажите 2-3 слова о вашем бизнесе, и я мгновенно покажу готовое решение.\n\n' +
-                        '🎤 Можете записать голосом или выбрать ниже:'
-                    );
-                    
-                    this.showQuickOptions([
-                        '🛒 Магазин',
-                        '📅 Запись',
-                        '🚚 Доставка',
-                        '🎓 Обучение',
-                        '💬 Консультации'
-                    ]);
-                }, 1500);
-            };
 
         // Инициализация GPT Assistant
         let gptAssistant;

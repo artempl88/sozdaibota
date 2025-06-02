@@ -17,6 +17,10 @@ const fs = require('fs').promises;
 const fsSync = require('fs'); // Добавляем синхронную версию для createReadStream
 require('dotenv').config();
 
+// Импорт новых модулей для анкеты
+const PreChatForm = require('./models/PreChatForm');
+const PreChatService = require('./services/PreChatService');
+
 const PRICING_SYSTEM = {
     hourlyRate: 3000,
     minProjectCost: 15000, // Минимальная стоимость проекта
@@ -1833,3 +1837,279 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
+// ===== НОВЫЕ ENDPOINTS ДЛЯ БЫСТРОЙ АНКЕТЫ =====
+
+// Отправка анкеты и создание сессии
+app.post('/api/pre-chat-form', async (req, res) => {
+    try {
+        const formData = req.body;
+        
+        // Валидация данных формы
+        const validation = preChatService.validateFormData(formData);
+        if (!validation.valid) {
+            return res.status(400).json({
+                success: false,
+                error: validation.error || 'Заполните все обязательные поля',
+                missing: validation.missing
+            });
+        }
+
+        // Создание сессии
+        const result = await preChatService.createSession(formData);
+        
+        if (result.success) {
+            // Генерируем первое сообщение от GPT с учетом анкеты
+            const contextualPrompt = preChatService.buildContextualPrompt(formData);
+            
+            try {
+                const gptResponse = await callOpenAIWithPrompt(contextualPrompt);
+                
+                // Сохраняем первое сообщение от ассистента
+                await preChatService.addMessageToHistory(
+                    result.sessionId,
+                    'assistant',
+                    gptResponse,
+                    { messageType: 'text' }
+                );
+
+                res.json({
+                    success: true,
+                    sessionId: result.sessionId,
+                    welcomeMessage: gptResponse
+                });
+            } catch (gptError) {
+                console.error('Ошибка получения приветственного сообщения:', gptError);
+                
+                // Fallback сообщение если GPT недоступен
+                const fallbackMessage = `Привет, ${formData.name}! 👋\n\nВижу, что вы работаете в сфере "${formData.industry}" и планируете бюджет ${formData.budget}.\n\nДавайте обсудим детали вашего проекта. Расскажите, какие задачи должен решать ваш бот?`;
+                
+                await preChatService.addMessageToHistory(
+                    result.sessionId,
+                    'assistant',
+                    fallbackMessage,
+                    { messageType: 'text' }
+                );
+
+                res.json({
+                    success: true,
+                    sessionId: result.sessionId,
+                    welcomeMessage: fallbackMessage,
+                    fallback: true
+                });
+            }
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка создания сессии'
+            });
+        }
+        
+    } catch (error) {
+        console.error('Ошибка обработки анкеты:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Внутренняя ошибка сервера'
+        });
+    }
+});
+
+// Отправка сообщения в чат с контекстом анкеты
+app.post('/api/pre-chat-message', async (req, res) => {
+    try {
+        const { sessionId, message } = req.body;
+        
+        if (!sessionId || !message) {
+            return res.status(400).json({
+                success: false,
+                error: 'Не указан sessionId или сообщение'
+            });
+        }
+
+        // Получаем сессию
+        const session = await preChatService.getSession(sessionId);
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                error: 'Сессия не найдена'
+            });
+        }
+
+        // Сохраняем сообщение пользователя
+        await preChatService.addMessageToHistory(
+            sessionId,
+            'user',
+            message,
+            { messageType: 'text' }
+        );
+
+        // Строим контекст для GPT
+        const contextualPrompt = preChatService.buildContextualPrompt(
+            session.formData,
+            session.chatHistory
+        );
+
+        // Добавляем новое сообщение пользователя
+        contextualPrompt.push({
+            role: 'user',
+            content: message
+        });
+
+        try {
+            const gptResponse = await callOpenAIWithPrompt(contextualPrompt);
+            
+            // Сохраняем ответ ассистента
+            await preChatService.addMessageToHistory(
+                sessionId,
+                'assistant',
+                gptResponse,
+                { messageType: 'text' }
+            );
+
+            // Обновляем лид-скор
+            const leadScore = await preChatService.updateLeadScore(sessionId);
+
+            res.json({
+                success: true,
+                message: gptResponse,
+                leadScore: leadScore
+            });
+
+        } catch (gptError) {
+            console.error('Ошибка GPT:', gptError);
+            
+            const fallbackResponse = getFallbackResponse(message);
+            
+            await preChatService.addMessageToHistory(
+                sessionId,
+                'assistant',
+                fallbackResponse,
+                { messageType: 'text' }
+            );
+
+            res.json({
+                success: true,
+                message: fallbackResponse,
+                fallback: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Ошибка обработки сообщения:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка обработки сообщения'
+        });
+    }
+});
+
+// Получение истории чата
+app.get('/api/pre-chat-history/:sessionId', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        const session = await preChatService.getSession(sessionId);
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                error: 'Сессия не найдена'
+            });
+        }
+
+        // Фильтруем только пользовательские сообщения и ответы ассистента
+        const chatHistory = session.chatHistory.filter(msg => 
+            msg.metadata.messageType === 'text'
+        ).map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp
+        }));
+
+        res.json({
+            success: true,
+            formData: session.formData,
+            chatHistory: chatHistory,
+            leadScore: session.leadScore,
+            status: session.status
+        });
+        
+    } catch (error) {
+        console.error('Ошибка получения истории чата:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения истории чата'
+        });
+    }
+});
+
+// Аналитика анкет
+app.get('/api/pre-chat-analytics', async (req, res) => {
+    try {
+        const analytics = await preChatService.getAnalytics();
+        
+        if (analytics) {
+            res.json({
+                success: true,
+                ...analytics
+            });
+        } else {
+            res.json({
+                success: true,
+                totalSessions: 0,
+                activeChats: 0,
+                qualifiedLeads: 0,
+                avgScore: 0,
+                industryStats: [],
+                conversionRate: 0
+            });
+        }
+    } catch (error) {
+        console.error('Ошибка получения аналитики анкет:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения аналитики'
+        });
+    }
+});
+
+// Вспомогательная функция для вызова OpenAI с контекстуальным промптом
+async function callOpenAIWithPrompt(messages) {
+    const axiosConfig = {
+        headers: {
+            'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'CreateBot-PreChat/1.0'
+        },
+        timeout: 30000
+    };
+
+    if (proxyAgent) {
+        axiosConfig.httpsAgent = proxyAgent;
+    }
+
+    const response = await axios.post(
+        OPENAI_CONFIG.endpoint,
+        {
+            model: OPENAI_CONFIG.model,
+            messages: messages,
+            max_tokens: 500,
+            temperature: 0.7,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1
+        },
+        axiosConfig
+    );
+
+    const assistantMessage = response.data.choices[0]?.message?.content;
+    
+    if (!assistantMessage) {
+        throw new Error('Нет ответа от OpenAI');
+    }
+
+    return assistantMessage;
+}
+
+// ===== ENDPOINT ДЛЯ СТАТИСТИКИ СМЕТ =====
+
+// Создаем экземпляр сервиса
+const preChatService = new PreChatService();
