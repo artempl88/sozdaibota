@@ -1901,6 +1901,7 @@
             <div class="gpt-input-area" id="gptInputArea" style="display: none;">
                 <div class="input-wrapper" style="display: flex; gap: 0.5rem; align-items: center;">
                     <input type="text" class="gpt-input" id="gptInput" placeholder="Напишите ваш ответ..." style="flex: 1;">
+                    <button id="voiceButton" title="Записать голосовое сообщение">🎤</button>
                     <button id="sendButton" title="Отправить сообщение">📤</button>
                 </div>
                 <div class="gpt-buttons" id="gptButtons">
@@ -2069,6 +2070,10 @@
                 this.formData = null;
                 this.isFormMode = true; // Начинаем с формы
                 
+                // Переменные для голосовой записи
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                
                 // API Configuration
                 this.apiConfig = {
                     formEndpoint: '/api/pre-chat-form',
@@ -2085,6 +2090,7 @@
                 const form = document.getElementById('quickSurveyForm');
                 const input = document.getElementById('gptInput');
                 const sendButton = document.getElementById('sendButton');
+                const voiceButton = document.getElementById('voiceButton');
                 
                 toggle.addEventListener('click', () => this.toggleChat());
                 close.addEventListener('click', () => this.closeChat());
@@ -2108,6 +2114,13 @@
                             this.handleInput(inputValue);
                             input.value = '';
                         }
+                    }
+                });
+                
+                // Обработчик голосовой кнопки
+                voiceButton.addEventListener('click', () => {
+                    if (!this.isFormMode) {
+                        this.handleVoiceRecording();
                     }
                 });
                 
@@ -2335,6 +2348,166 @@
                 const indicator = document.getElementById('typingIndicator');
                 if (indicator) {
                     indicator.remove();
+                }
+            }
+            
+            // Методы для работы с голосовой записью
+            async handleVoiceRecording() {
+                const voiceButton = document.getElementById('voiceButton');
+                
+                if (!this.mediaRecorder) {
+                    await this.startVoiceRecording();
+                } else if (this.mediaRecorder.state === 'recording') {
+                    this.stopVoiceRecording();
+                }
+            }
+            
+            async startVoiceRecording() {
+                try {
+                    console.log('🎤 Запрашиваем разрешение на микрофон...');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            sampleRate: 16000,
+                            channelCount: 1,
+                            volume: 1.0
+                        }
+                    });
+                    
+                    console.log('✅ Разрешение получено, начинаем запись');
+                    
+                    this.mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+                    
+                    this.audioChunks = [];
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = async () => {
+                        console.log('🔄 Запись завершена, обрабатываем аудио...');
+                        
+                        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                        await this.sendVoiceMessage(audioBlob);
+                        
+                        // Останавливаем все треки
+                        stream.getTracks().forEach(track => track.stop());
+                        this.mediaRecorder = null;
+                    };
+                    
+                    // Обновляем интерфейс
+                    const voiceButton = document.getElementById('voiceButton');
+                    voiceButton.innerHTML = '⏹️';
+                    voiceButton.classList.add('recording');
+                    voiceButton.title = 'Остановить запись';
+                    
+                    // Начинаем запись
+                    this.mediaRecorder.start();
+                    
+                    console.log('🎙️ Запись началась');
+                    
+                } catch (error) {
+                    console.error('❌ Ошибка записи голоса:', error);
+                    
+                    let errorMessage = 'Ошибка доступа к микрофону';
+                    if (error.name === 'NotAllowedError') {
+                        errorMessage = 'Разрешите доступ к микрофону для записи голосовых сообщений';
+                    } else if (error.name === 'NotFoundError') {
+                        errorMessage = 'Микрофон не найден. Проверьте подключение устройства';
+                    }
+                    
+                    this.showError(errorMessage);
+                }
+            }
+            
+            stopVoiceRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    console.log('⏹️ Останавливаем запись...');
+                    this.mediaRecorder.stop();
+                    
+                    // Возвращаем кнопку в исходное состояние
+                    const voiceButton = document.getElementById('voiceButton');
+                    voiceButton.innerHTML = '🎤';
+                    voiceButton.classList.remove('recording');
+                    voiceButton.title = 'Записать голосовое сообщение';
+                }
+            }
+            
+            async sendVoiceMessage(audioBlob) {
+                if (!this.sessionId) {
+                    console.error('❌ Нет ID сессии для отправки голосового сообщения');
+                    return;
+                }
+                
+                try {
+                    console.log('📤 Отправляем голосовое сообщение на сервер...');
+                    
+                    // Показываем индикатор обработки
+                    this.addMessage('user', '🎤 Голосовое сообщение (обрабатывается...)');
+                    this.showTypingIndicator();
+                    
+                    // Создаем FormData для отправки файла
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'voice.webm');
+                    formData.append('sessionId', this.sessionId);
+                    formData.append('conversation', JSON.stringify(this.conversationHistory));
+                    
+                    const response = await fetch('/api/voice-message', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    this.hideTypingIndicator();
+                    
+                    if (result.success) {
+                        console.log('✅ Голосовое сообщение обработано');
+                        console.log('📝 Распознанный текст:', result.transcription);
+                        
+                        // Обновляем последнее сообщение пользователя
+                        const messages = document.querySelectorAll('.gpt-message.user');
+                        const lastUserMessage = messages[messages.length - 1];
+                        if (lastUserMessage && lastUserMessage.textContent.includes('обрабатывается')) {
+                            lastUserMessage.innerHTML = `🎤 "${result.transcription}"`;
+                        }
+                        
+                        // Добавляем ответ ассистента
+                        this.addMessage('assistant', result.message);
+                        
+                        // Добавляем в историю диалога
+                        this.conversationHistory.push(
+                            { role: 'user', content: result.transcription },
+                            { role: 'assistant', content: result.message }
+                        );
+                        
+                        console.log('🎯 Голосовое сообщение успешно обработано!');
+                        
+                    } else {
+                        throw new Error(result.error || 'Ошибка обработки голосового сообщения');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Ошибка отправки голосового сообщения:', error);
+                    
+                    this.hideTypingIndicator();
+                    
+                    // Обновляем сообщение об ошибке
+                    const messages = document.querySelectorAll('.gpt-message.user');
+                    const lastUserMessage = messages[messages.length - 1];
+                    if (lastUserMessage && lastUserMessage.textContent.includes('обрабатывается')) {
+                        lastUserMessage.innerHTML = '❌ Ошибка обработки голоса';
+                    }
+                    
+                    this.addMessage('assistant', 'Извините, не удалось обработать голосовое сообщение. Попробуйте написать текстом.');
                 }
             }
             
