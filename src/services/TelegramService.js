@@ -386,49 +386,117 @@ PID: ${process.pid}`;
                 this.recentlySentEstimates.delete(sessionId);
             }, 60000);
 
+            // Подготавливаем данные для сохранения
             const models = require('../models');
             let saved = estimate;
+            let estimateId = 'temp_' + Date.now();
             
+            // Пытаемся сохранить в БД если модель доступна
             if (models.Estimate) {
-                saved = await models.Estimate.create({
-                    sessionId,
-                    ...estimate
-                });
+                try {
+                    // Исправляем структуру компонентов перед сохранением
+                    const estimateData = {
+                        sessionId,
+                        projectName: estimate.projectName || 'Telegram бот',
+                        totalCost: estimate.totalCost || 0,
+                        totalHours: estimate.totalHours || 0,
+                        hourlyRate: estimate.hourlyRate || 2000,
+                        complexity: estimate.complexity || 'средний',
+                        timeline: estimate.timeline || `${Math.ceil((estimate.totalHours || 40) / 40)} недель`,
+                        detectedFeatures: estimate.detectedFeatures || [],
+                        status: 'pending',
+                        components: []
+                    };
+                    
+                    // Обрабатываем компоненты
+                    if (estimate.components && Array.isArray(estimate.components)) {
+                        estimateData.components = estimate.components.map(comp => ({
+                            name: comp.name || 'Компонент',
+                            hours: comp.hours || 0,
+                            cost: comp.cost || (comp.hours || 0) * (estimate.hourlyRate || 2000),
+                            description: comp.description || ''
+                        }));
+                    } else if (estimate.costBreakdown && Array.isArray(estimate.costBreakdown)) {
+                        // Если есть costBreakdown, используем его
+                        estimateData.components = estimate.costBreakdown.map(comp => ({
+                            name: comp.name || 'Компонент',
+                            hours: comp.hours || 0,
+                            cost: comp.cost || (comp.hours || 0) * (estimate.hourlyRate || 2000),
+                            description: comp.description || ''
+                        }));
+                    } else {
+                        // Создаем минимальный компонент
+                        estimateData.components = [{
+                            name: 'Разработка бота',
+                            hours: estimate.totalHours || 40,
+                            cost: estimate.totalCost || 80000,
+                            description: 'Полная разработка функционала'
+                        }];
+                    }
+                    
+                    // Добавляем дополнительные поля если есть
+                    if (estimate.risks) estimateData.risks = estimate.risks;
+                    if (estimate.recommendations) estimateData.recommendations = estimate.recommendations;
+                    
+                    logger.info('Сохраняем смету в БД', { 
+                        componentsCount: estimateData.components.length,
+                        totalCost: estimateData.totalCost 
+                    });
+                    
+                    saved = await models.Estimate.create(estimateData);
+                    estimateId = saved._id;
+                    
+                    logger.info('✅ Смета сохранена в БД', { estimateId });
+                    
+                } catch (dbError) {
+                    logger.error('⚠️ Ошибка сохранения в БД, продолжаем без сохранения:', dbError.message);
+                    // Продолжаем работу без сохранения в БД
+                    estimateId = 'temp_' + Date.now();
+                }
             }
             
+            // Форматируем сообщение для Telegram
             const detectedFeatures = estimate.detectedFeatures || [];
             const safeTotalCost = Number(estimate.totalCost) || 0;
             const safeTotalHours = Number(estimate.totalHours) || 0;
             
             const message = 
                 `📊 **НОВАЯ СМЕТА**\n\n` +
-                `🆔 ID: ${saved._id || 'temp'}\n` +
+                `🆔 ID: ${estimateId}\n` +
+                `📝 Проект: ${estimate.projectName || 'Telegram бот'}\n` +
                 `💰 **ИТОГО: ${safeTotalCost.toLocaleString('ru-RU')} ₽**\n` +
-                `⏱️ Время: ${safeTotalHours} часов\n\n` +
+                `⏱️ Время: ${safeTotalHours} часов\n` +
+                `📅 Срок: ${estimate.timeline || `${Math.ceil(safeTotalHours / 40)} недель`}\n\n` +
                 (detectedFeatures.length > 0 ? 
-                    `📋 Найденные функции:\n${detectedFeatures.map(f => `• ${f}`).join('\n')}\n\n` : 
-                    '📋 Базовые функции бота\n\n'
+                    `📋 **Найденные функции:**\n${detectedFeatures.map(f => `• ${f}`).join('\n')}\n\n` : 
+                    ''
                 ) +
-                `📅 Дата: ${new Date().toLocaleString('ru-RU')}`;
+                `🕐 Дата: ${new Date().toLocaleString('ru-RU')}`;
 
             const keyboard = {
                 inline_keyboard: [[
-                    { text: '✅ Утвердить', callback_data: `approve:${saved._id || 'temp'}` },
-                    { text: '❌ Отклонить', callback_data: `reject:${saved._id || 'temp'}` },
-                    { text: '✏️ Редактировать', callback_data: `edit:${saved._id || 'temp'}` }
+                    { text: '✅ Утвердить', callback_data: `approve:${estimateId}` },
+                    { text: '❌ Отклонить', callback_data: `reject:${estimateId}` },
+                    { text: '✏️ Редактировать', callback_data: `edit:${estimateId}` }
                 ]]
             };
 
-            await this.bot.sendMessage(this.adminChatId, message, {
+            // Отправляем в Telegram
+            const sentMessage = await this.bot.sendMessage(this.adminChatId, message, {
                 parse_mode: 'Markdown',
                 reply_markup: keyboard
             });
 
-            logger.info('Смета отправлена менеджеру', { estimateId: saved._id });
+            logger.info('✅ Смета успешно отправлена менеджеру в Telegram', { 
+                estimateId,
+                messageId: sentMessage.message_id,
+                chatId: this.adminChatId
+            });
+            
             return true;
 
         } catch (error) {
-            logger.error('Ошибка отправки сметы в Telegram:', error);
+            logger.error('❌ Ошибка отправки сметы в Telegram:', error);
             return false;
         }
     }

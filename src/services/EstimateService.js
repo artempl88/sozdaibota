@@ -163,12 +163,13 @@ ${JSON.stringify(this.pricingSystem.features, null, 2)}
             
             // Добавляем базовые компоненты
             Object.entries(this.pricingSystem.baseComponents).forEach(([name, hours]) => {
+                const cost = hours * this.pricingSystem.hourlyRate;
                 totalHours += hours;
                 components.push({ 
                     name, 
                     hours, 
                     description: 'Базовая функция',
-                    cost: hours * this.pricingSystem.hourlyRate 
+                    cost: cost // ВАЖНО: добавляем поле cost
                 });
             });
             
@@ -178,32 +179,36 @@ ${JSON.stringify(this.pricingSystem.features, null, 2)}
             // Добавляем функции
             features.forEach(feature => {
                 const hours = this.pricingSystem.features[feature] || 5;
+                const cost = hours * this.pricingSystem.hourlyRate;
                 totalHours += hours;
                 components.push({ 
                     name: feature, 
                     hours, 
                     description: 'Специальная функция',
-                    cost: hours * this.pricingSystem.hourlyRate 
+                    cost: cost // ВАЖНО: добавляем поле cost
                 });
             });
             
             // Минимум 40 часов на любой проект
             totalHours = Math.max(totalHours, 40);
+            const totalCost = totalHours * this.pricingSystem.hourlyRate;
             
             const result = {
                 projectName: 'Telegram-бот',
-                components,
+                components: components, // Уже содержат поле cost
                 totalHours,
-                totalCost: totalHours * this.pricingSystem.hourlyRate,
+                totalCost,
+                hourlyRate: this.pricingSystem.hourlyRate,
                 complexity: 'средний',
-                timeline: `${Math.ceil(totalHours / 40)} недель`,
+                timeline: `${Math.ceil(totalHours / 40)} недел${this.getWeekEnding(Math.ceil(totalHours / 40))}`,
                 detectedFeatures: features,
-                costBreakdown: components
+                costBreakdown: components // Для совместимости
             };
 
             logger.info('Смета рассчитана через fallback', { 
                 totalCost: result.totalCost, 
-                totalHours: result.totalHours 
+                totalHours: result.totalHours,
+                componentsCount: components.length
             });
 
             return result;
@@ -212,6 +217,13 @@ ${JSON.stringify(this.pricingSystem.features, null, 2)}
             logger.error('Ошибка fallback расчета:', error);
             return this.getMinimalEstimate();
         }
+    }
+
+    // Вспомогательный метод для правильного склонения "недель"
+    getWeekEnding(weeks) {
+        if (weeks === 1) return 'я';
+        if (weeks >= 2 && weeks <= 4) return 'и';
+        return 'ь';
     }
 
     // Парсинг требований из текста
@@ -321,18 +333,32 @@ ${estimate.recommendations.map(r => `• ${r}`).join('\n')}` : ''}
 
     // Минимальная смета при ошибках
     getMinimalEstimate() {
+        const hours = 40;
+        const cost = hours * this.pricingSystem.hourlyRate;
+        
         return {
             projectName: 'Базовый Telegram-бот',
             components: [
-                { name: 'Базовая разработка', hours: 40, description: 'Минимальный функционал' }
+                { 
+                    name: 'Базовая разработка', 
+                    hours: hours, 
+                    description: 'Минимальный функционал',
+                    cost: cost // ВАЖНО: добавляем поле cost
+                }
             ],
-            totalHours: 40,
-            totalCost: 80000,
+            totalHours: hours,
+            totalCost: cost,
+            hourlyRate: this.pricingSystem.hourlyRate,
             complexity: 'простой',
             timeline: '1 неделя',
             detectedFeatures: [],
             costBreakdown: [
-                { name: 'Базовая разработка', hours: 40, cost: 80000 }
+                { 
+                    name: 'Базовая разработка', 
+                    hours: hours, 
+                    cost: cost,
+                    description: 'Минимальный функционал'
+                }
             ]
         };
     }
