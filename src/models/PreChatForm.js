@@ -94,6 +94,25 @@ const PreChatFormSchema = new mongoose.Schema({
         features: [String],
         estimateId: String,
         sentToTelegram: Boolean
+    },
+    // Поля для утвержденной сметы
+    estimateApproved: {
+        type: Boolean,
+        default: false
+    },
+    estimateApprovedAt: {
+        type: Date
+    },
+    approvedEstimateId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Estimate'
+    },
+    estimateDeliveredToClient: {
+        type: Boolean,
+        default: false
+    },
+    estimateDeliveredAt: {
+        type: Date
     }
 }, {
     timestamps: true

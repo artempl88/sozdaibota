@@ -126,6 +126,74 @@ router.post('/quick-estimate', (req, res) => ChatController.getQuickEstimate(req
 // Отправка утвержденной сметы
 router.post('/send-approved-estimate', (req, res) => ChatController.sendApprovedEstimate(req, res));
 
+// Server-Sent Events для real-time обновлений
+router.get('/estimate-updates/:sessionId', async (req, res) => {
+    const { sessionId } = req.params;
+    
+    // Настраиваем SSE
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+    });
+    
+    // Отправляем начальное сообщение
+    res.write('data: {"type":"connected"}\n\n');
+    
+    // Функция для проверки сметы
+    const checkEstimate = async () => {
+        try {
+            const { PreChatForm } = require('../models');
+            const session = await PreChatForm.findOne({ sessionId });
+            
+            if (session && session.estimateApproved && !session.estimateDeliveredToClient) {
+                const estimateMessage = session.chatHistory
+                    .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
+                    .pop();
+                
+                if (estimateMessage) {
+                    // Отправляем утвержденную смету клиенту
+                    const data = JSON.stringify({
+                        type: 'approved_estimate',
+                        estimate: {
+                            message: estimateMessage.content,
+                            approvedAt: estimateMessage.metadata.approvedAt,
+                            estimateId: estimateMessage.metadata.estimateId
+                        }
+                    });
+                    
+                    res.write(`data: ${data}\n\n`);
+                    
+                    // Помечаем как доставленную
+                    session.estimateDeliveredToClient = true;
+                    session.estimateDeliveredAt = new Date();
+                    await session.save();
+                    
+                    // Закрываем соединение после доставки
+                    setTimeout(() => {
+                        res.end();
+                    }, 1000);
+                }
+            }
+        } catch (error) {
+            logger.error('SSE ошибка проверки сметы:', error);
+        }
+    };
+    
+    // Проверяем каждые 5 секунд
+    const interval = setInterval(checkEstimate, 5000);
+    
+    // Проверяем сразу
+    checkEstimate();
+    
+    // Очистка при закрытии соединения
+    req.on('close', () => {
+        clearInterval(interval);
+        logger.info('SSE соединение закрыто', { sessionId });
+    });
+});
+
 // Принудительная отправка сметы
 router.post('/force-estimate', async (req, res) => {
     try {
@@ -136,7 +204,7 @@ router.post('/force-estimate', async (req, res) => {
         logger.info('Принудительная генерация сметы', { sessionId });
         
         // Генерируем смету
-        const estimate = await (EstimateService.calculateProjectEstimate || EstimateService.calculateEstimate)(requirements, []);
+        const estimate = await EstimateService.calculateEstimate(requirements, []);
         
         if (!estimate) {
             return res.status(500).json({
@@ -167,6 +235,9 @@ router.post('/force-estimate', async (req, res) => {
         });
     }
 });
+
+// Проверка утвержденной сметы
+router.get('/check-approved-estimate/:sessionId', (req, res) => ChatController.checkApprovedEstimate(req, res));
 
 // === СЕССИИ ===
 

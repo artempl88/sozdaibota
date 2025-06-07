@@ -1,6 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('../config');
 const logger = require('../utils/logger');
+const fs = require('fs');
+const path = require('path');
 
 // Глобальная переменная для синглтона
 let instance = null;
@@ -141,7 +143,7 @@ PID: ${process.pid}`;
             if (models.Estimate) {
                 const approvedEstimate = await models.Estimate.findByIdAndUpdate(
                     estimateId, 
-                    { status: 'approved' },
+                    { status: 'approved', approvedAt: new Date() },
                     { new: true }
                 );
                 
@@ -158,16 +160,55 @@ PID: ${process.pid}`;
 
                 if (approvedEstimate && approvedEstimate.sessionId) {
                     try {
-                        logger.info('Смета утверждена и готова к отправке клиенту', { 
+                        logger.info('Смета утверждена, отправляем клиенту', { 
                             estimateId, 
                             sessionId: approvedEstimate.sessionId 
                         });
                         
-                        this.bot.sendMessage(
-                            query.message.chat.id,
-                            `🚀 **СМЕТА ОТПРАВЛЕНА КЛИЕНТУ**\n\nID: ${estimateId}`,
-                            { parse_mode: 'Markdown' }
-                        );
+                        // Отправляем смету обратно клиенту
+                        const { PreChatForm } = require('../models');
+                        const session = await PreChatForm.findOne({ sessionId: approvedEstimate.sessionId });
+                        
+                        if (session) {
+                            // Форматируем смету для клиента
+                            const estimateMessage = this.formatEstimateForClient(approvedEstimate);
+                            
+                            // Добавляем смету в историю чата как специальное сообщение
+                            session.chatHistory.push({
+                                role: 'assistant',
+                                content: estimateMessage,
+                                timestamp: new Date(),
+                                metadata: {
+                                    messageType: 'approved_estimate',
+                                    estimateId: approvedEstimate._id.toString(),
+                                    approved: true,
+                                    approvedAt: new Date()
+                                }
+                            });
+                            
+                            // Обновляем статус сессии
+                            session.estimateApproved = true;
+                            session.estimateApprovedAt = new Date();
+                            session.approvedEstimateId = approvedEstimate._id;
+                            
+                            await session.save();
+                            
+                            logger.info('✅ Смета добавлена в историю чата клиента', { 
+                                sessionId: approvedEstimate.sessionId 
+                            });
+                            
+                            this.bot.sendMessage(
+                                query.message.chat.id,
+                                `🚀 **СМЕТА ОТПРАВЛЕНА КЛИЕНТУ**\n\nID: ${estimateId}\nСессия: ${approvedEstimate.sessionId}`,
+                                { parse_mode: 'Markdown' }
+                            );
+                        } else {
+                            logger.error('Сессия клиента не найдена', { sessionId: approvedEstimate.sessionId });
+                            this.bot.sendMessage(
+                                query.message.chat.id,
+                                '⚠️ Смета утверждена, но сессия клиента не найдена'
+                            );
+                        }
                     } catch (sendError) {
                         logger.error('Ошибка отправки сметы клиенту:', sendError);
                         this.bot.sendMessage(
@@ -487,6 +528,67 @@ PID: ${process.pid}`;
                 reply_markup: keyboard
             });
 
+            // Отправляем историю диалога в текстовом файле
+            try {
+                // Получаем историю диалога из PreChatForm
+                const { PreChatForm } = require('../models');
+                const session = await PreChatForm.findOne({ sessionId });
+                
+                if (session && session.chatHistory && session.chatHistory.length > 0) {
+                    // Формируем текст истории
+                    let historyText = `ИСТОРИЯ ДИАЛОГА\n`;
+                    historyText += `================\n\n`;
+                    historyText += `ID сессии: ${sessionId}\n`;
+                    historyText += `Имя клиента: ${session.name || 'Не указано'}\n`;
+                    historyText += `Должность: ${session.position || 'Не указано'}\n`;
+                    historyText += `Отрасль: ${session.industry || 'Не указано'}\n`;
+                    historyText += `Бюджет: ${session.budget || 'Не указано'}\n`;
+                    historyText += `Сроки: ${session.timeline || 'Не указано'}\n`;
+                    historyText += `Дата начала: ${new Date(session.createdAt).toLocaleString('ru-RU')}\n`;
+                    historyText += `\n================\nДИАЛОГ:\n================\n\n`;
+                    
+                    // Добавляем все сообщения из истории
+                    session.chatHistory.forEach((msg, index) => {
+                        const role = msg.role === 'user' ? '👤 КЛИЕНТ' : '🤖 БОТ';
+                        const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleString('ru-RU') : '';
+                        historyText += `${role} (${timestamp}):\n${msg.content}\n\n---\n\n`;
+                    });
+                    
+                    // Добавляем информацию о смете в конец
+                    historyText += `\n================\nСГЕНЕРИРОВАННАЯ СМЕТА:\n================\n\n`;
+                    historyText += `Проект: ${estimate.projectName || 'Telegram бот'}\n`;
+                    historyText += `Стоимость: ${safeTotalCost.toLocaleString('ru-RU')} ₽\n`;
+                    historyText += `Время: ${safeTotalHours} часов\n`;
+                    historyText += `Срок: ${estimate.timeline || `${Math.ceil(safeTotalHours / 40)} недель`}\n`;
+                    
+                    if (estimate.components && estimate.components.length > 0) {
+                        historyText += `\nКомпоненты:\n`;
+                        estimate.components.forEach(comp => {
+                            historyText += `- ${comp.name}: ${comp.hours}ч = ${comp.cost.toLocaleString('ru-RU')} ₽\n`;
+                        });
+                    }
+                    
+                    // Создаем Buffer из текста
+                    const historyBuffer = Buffer.from(historyText, 'utf-8');
+                    
+                    // Отправляем файл
+                    await this.bot.sendDocument(this.adminChatId, historyBuffer, {
+                        caption: `📄 История диалога для сессии ${sessionId}`,
+                        filename: `dialog_${sessionId}_${new Date().toISOString().split('T')[0]}.txt`
+                    }, {
+                        filename: `dialog_${sessionId}_${new Date().toISOString().split('T')[0]}.txt`,
+                        contentType: 'text/plain'
+                    });
+                    
+                    logger.info('✅ История диалога отправлена в Telegram');
+                } else {
+                    logger.warn('История диалога не найдена или пуста', { sessionId });
+                }
+            } catch (historyError) {
+                logger.error('⚠️ Ошибка отправки истории диалога:', historyError);
+                // Не прерываем основной процесс, если не удалось отправить историю
+            }
+
             logger.info('✅ Смета успешно отправлена менеджеру в Telegram', { 
                 estimateId,
                 messageId: sentMessage.message_id,
@@ -578,6 +680,50 @@ PID: ${process.pid}`;
             hasAdminChat: !!this.adminChatId,
             ready: this.isReady()
         };
+    }
+
+    // Форматирование сметы для клиента
+    formatEstimateForClient(estimate) {
+        const totalCost = Number(estimate.totalCost) || 0;
+        const totalHours = Number(estimate.totalHours) || 0;
+        
+        let message = `🎉 **Отличные новости! Ваша смета утверждена!**\n\n`;
+        message += `📋 **${estimate.projectName || 'Ваш Telegram-бот'}**\n\n`;
+        message += `💰 **Стоимость проекта:** ${totalCost.toLocaleString('ru-RU')} руб.\n`;
+        message += `⏱️ **Срок разработки:** ${estimate.timeline || `${Math.ceil(totalHours / 40)} недель`}\n`;
+        message += `📊 **Общая трудоемкость:** ${totalHours} часов\n\n`;
+        
+        if (estimate.components && estimate.components.length > 0) {
+            message += `**📌 Что входит в стоимость:**\n`;
+            estimate.components.forEach(comp => {
+                const compCost = Number(comp.cost) || 0;
+                message += `• ${comp.name}: ${compCost.toLocaleString('ru-RU')} руб.\n`;
+            });
+            message += `\n`;
+        }
+        
+        if (estimate.detectedFeatures && estimate.detectedFeatures.length > 0) {
+            message += `**✅ Включенные функции:**\n`;
+            estimate.detectedFeatures.forEach(feature => {
+                message += `• ${feature}\n`;
+            });
+            message += `\n`;
+        }
+        
+        message += `**🚀 Что дальше?**\n`;
+        message += `1. Менеджер свяжется с вами в течение 30 минут\n`;
+        message += `2. Обсудите детали и подпишите договор\n`;
+        message += `3. Внесите предоплату 50%\n`;
+        message += `4. Мы приступим к разработке!\n\n`;
+        
+        message += `**📞 Контакты для связи:**\n`;
+        message += `• Телефон: +7 (XXX) XXX-XX-XX\n`;
+        message += `• Telegram: @your_manager\n`;
+        message += `• Email: info@example.com\n\n`;
+        
+        message += `_Спасибо за доверие! Мы создадим отличного бота для вашего бизнеса!_ 🎯`;
+        
+        return message;
     }
 
     async shutdown() {
