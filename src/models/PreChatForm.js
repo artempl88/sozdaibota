@@ -79,6 +79,21 @@ const PreChatFormSchema = new mongoose.Schema({
     lastActivity: {
         type: Date,
         default: Date.now
+    },
+    // НОВЫЕ ПОЛЯ для отслеживания сметы
+    estimateSent: {
+        type: Boolean,
+        default: false
+    },
+    estimateSentAt: {
+        type: Date
+    },
+    estimateData: {
+        totalCost: Number,
+        totalHours: Number,
+        features: [String],
+        estimateId: String,
+        sentToTelegram: Boolean
     }
 }, {
     timestamps: true

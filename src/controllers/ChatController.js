@@ -137,6 +137,45 @@ class ChatController {
                 });
             }
 
+            // ВАЖНО: Проверяем, не была ли уже отправлена смета
+            if (session.estimateSent && session.estimateSentAt) {
+                const timeSinceEstimate = Date.now() - new Date(session.estimateSentAt).getTime();
+                
+                // Если смета отправлена менее 5 минут назад - не генерируем новую
+                if (timeSinceEstimate < 300000) { // 5 минут
+                    logger.info('⏭️ Смета уже отправлена, пропускаем генерацию', {
+                        sessionId,
+                        timeSinceEstimate: Math.round(timeSinceEstimate / 1000) + ' сек'
+                    });
+                    
+                    // Обрабатываем сообщение обычным образом, но без генерации сметы
+                    const chatHistory = session.chatHistory || [];
+                    const systemPrompt = AdvancedGPTService.buildSystemPrompt('chat', chatHistory.length);
+                    
+                    const messages = [
+                        { role: 'system', content: systemPrompt },
+                        ...chatHistory.slice(-10),
+                        { role: 'user', content: message }
+                    ];
+                    
+                    const gptResponse = await AdvancedGPTService.callOpenAIWithPrompt(messages);
+                    
+                    // Сохраняем историю (только user и assistant!)
+                    session.chatHistory.push(
+                        { role: 'user', content: message },
+                        { role: 'assistant', content: gptResponse }
+                    );
+                    await session.save();
+                    
+                    return res.json({
+                        success: true,
+                        message: gptResponse,
+                        hasEstimate: false,
+                        estimateAlreadySent: true
+                    });
+                }
+            }
+
             // Находим разговор
             let conversation = null;
             if (Conversation) {
@@ -230,25 +269,34 @@ class ChatController {
 
 Пока ждем ответа менеджера, скажите - хотите что-то добавить или изменить в функционале?`;
                                 
-                                // Сохраняем информацию о смете
-                                session.chatHistory.push({
-                                    role: 'system',
-                                    content: JSON.stringify({ 
-                                        type: 'estimate_generated',
-                                        estimate: {
-                                            totalCost: estimate.totalCost,
-                                            totalHours: estimate.totalHours,
-                                            features: estimate.detectedFeatures
-                                        },
-                                        sent: true,
-                                        timestamp: new Date()
-                                    })
-                                });
+                                // ИСПРАВЛЕНИЕ: НЕ добавляем в chatHistory с role: 'system'
+                                // Вместо этого сохраняем информацию в отдельных полях сессии
                                 
-                                // Обновляем статус сессии
-                                session.estimateSent = true;
-                                session.estimateSentAt = new Date();
-                                await session.save();
+                                try {
+                                    // Обновляем статус сессии БЕЗ добавления в chatHistory
+                                    session.estimateSent = true;
+                                    session.estimateSentAt = new Date();
+                                    session.estimateData = {
+                                        totalCost: estimate.totalCost,
+                                        totalHours: estimate.totalHours,
+                                        features: estimate.detectedFeatures,
+                                        estimateId: estimate._id || 'temp',
+                                        sentToTelegram: true
+                                    };
+                                    
+                                    // Важно: НЕ добавляем ничего с role: 'system' в chatHistory!
+                                    
+                                    await session.save();
+                                    
+                                    logger.info('✅ Статус сессии обновлен', { 
+                                        sessionId,
+                                        estimateSent: true 
+                                    });
+                                    
+                                } catch (saveError) {
+                                    logger.error('⚠️ Ошибка сохранения статуса сессии:', saveError);
+                                    // Но смета уже отправлена, поэтому продолжаем
+                                }
                                 
                             } else {
                                 logger.error('❌ Не удалось отправить смету в Telegram', { sessionId });

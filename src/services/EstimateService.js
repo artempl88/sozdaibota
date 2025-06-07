@@ -6,7 +6,7 @@ class EstimateService {
         this.pricingSystem = {
             hourlyRate: 2000,
             minProjectCost: 15000,
-            // Базовые компоненты
+            // Только базовые компоненты, которые есть в ЛЮБОМ боте
             baseComponents: {
                 'базовая структура бота': 8,
                 'система команд и меню': 4,
@@ -15,294 +15,238 @@ class EstimateService {
                 'админ-панель': 12,
                 'система логирования': 3,
                 'деплой и настройка': 4
-            },
-            
-            // Функциональные блоки
-            features: {
-                // E-commerce
-                'каталог товаров': 12,
-                'корзина': 8,
-                'оформление заказа': 6,
-                'интеграция платежей': 10,
-                'система скидок': 6,
-                'отслеживание доставки': 8,
-                
-                // Записи и бронирование
-                'календарь записи': 10,
-                'выбор специалиста': 6,
-                'напоминания': 4,
-                'отмена/перенос записи': 4,
-                'интеграция с CRM': 12,
-                
-                // AI и аналитика
-                'интеграция GPT': 8,
-                'обработка изображений': 10,
-                'распознавание голоса': 12,
-                'генерация отчетов': 8,
-                'дашборд аналитики': 16,
-                
-                // Коммуникации
-                'рассылки': 6,
-                'персонализация': 8,
-                'многоязычность': 10,
-                'уведомления': 4,
-                
-                // Специфичные
-                'натальная карта': 20,
-                'расчет гороскопа': 16,
-                'анализ совместимости': 12,
-                'обработка изображений по фото': 24
-            },
-            
-            // Коэффициенты сложности
-            complexity: {
-                'простой': 1.0,
-                'средний': 1.3,
-                'сложный': 1.6,
-                'очень сложный': 2.0
-            },
-            
-            // Срочность
-            urgency: {
-                'стандарт': 1.0,
-                'срочно': 1.3,
-                'очень срочно': 1.5
             }
         };
     }
 
-    // Интеллектуальный расчет через GPT-4
+    // Главный метод - интеллектуальный расчет через GPT-4
     async calculateProjectEstimate(requirements, conversation = []) {
         try {
-            logger.info('Начинаем расчет сметы', { requirementsLength: requirements.length });
+            logger.info('Начинаем интеллектуальный расчет сметы через GPT');
 
-            // Сначала парсим требования
-            const detectedFeatures = this.parseRequirements(requirements);
+            // Анализируем требования и генерируем смету через GPT
+            const estimate = await this.generateEstimateWithGPT(requirements, conversation);
             
-            // Промпт для GPT-4 для точной оценки
-            const estimationPrompt = `Ты - опытный техлид с 10+ лет опыта оценки проектов Telegram-ботов.
-
-ЗАДАЧА: Оцени время разработки в часах для каждой функции.
-
-КОНТЕКСТ ПРОЕКТА:
-${requirements}
-
-БАЗОВЫЕ КОМПОНЕНТЫ (часы):
-${JSON.stringify(this.pricingSystem.baseComponents, null, 2)}
-
-ТИПОВЫЕ ФУНКЦИИ (часы):
-${JSON.stringify(this.pricingSystem.features, null, 2)}
-
-ПРАВИЛА ОЦЕНКИ:
-1. Если функция есть в списке - используй готовую оценку
-2. Для новых функций - оцени по аналогии
-3. Учти интеграции и зависимости между функциями
-4. Добавь 20% на тестирование и отладку
-5. Добавь 10% на непредвиденные задачи
-
-ФОРМАТ ОТВЕТА (строго JSON):
-{
-    "projectName": "Название проекта",
-    "components": [
-        {"name": "Компонент", "hours": 10, "description": "Что включает"}
-    ],
-    "totalHours": 100,
-    "complexity": "средний",
-    "risks": ["риск 1", "риск 2"],
-    "timeline": "2-3 недели",
-    "recommendations": ["совет 1", "совет 2"]
-}`;
-
-            try {
-                const messages = [
-                    { role: 'system', content: estimationPrompt },
-                    { role: 'user', content: `Оцени проект: ${requirements}` }
-                ];
-
-                const response = await GPTService.chat(messages);
-                const estimate = JSON.parse(response);
-                
-                // Расчет стоимости
-                const cost = estimate.totalHours * this.pricingSystem.hourlyRate;
-                
-                const result = {
-                    ...estimate,
-                    hourlyRate: this.pricingSystem.hourlyRate,
-                    totalCost: cost,
-                    detectedFeatures: detectedFeatures,
-                    costBreakdown: estimate.components.map(c => ({
-                        ...c,
-                        cost: c.hours * this.pricingSystem.hourlyRate
-                    }))
-                };
-
-                logger.info('Смета рассчитана через GPT', { 
-                    totalCost: result.totalCost, 
-                    totalHours: result.totalHours 
+            if (estimate) {
+                logger.info('Смета успешно сгенерирована через GPT', { 
+                    totalCost: estimate.totalCost, 
+                    totalHours: estimate.totalHours,
+                    componentsCount: estimate.components.length
                 });
-
-                return result;
-
-            } catch (gptError) {
-                logger.warn('Ошибка GPT расчета, используем fallback:', gptError.message);
-                return this.fallbackEstimate(requirements, detectedFeatures);
+                return estimate;
             }
+
+            // Fallback на базовую оценку
+            logger.warn('GPT не смог сгенерировать смету, используем базовую оценку');
+            return this.getBasicEstimate(requirements);
 
         } catch (error) {
             logger.error('Ошибка расчета сметы:', error);
-            return this.fallbackEstimate(requirements);
-        }
-    }
-
-    // Резервная оценка без GPT-4
-    fallbackEstimate(requirements, detectedFeatures = null) {
-        try {
-            const lower = requirements.toLowerCase();
-            let totalHours = 0;
-            let components = [];
-            
-            // Добавляем базовые компоненты
-            Object.entries(this.pricingSystem.baseComponents).forEach(([name, hours]) => {
-                const cost = hours * this.pricingSystem.hourlyRate;
-                totalHours += hours;
-                components.push({ 
-                    name, 
-                    hours, 
-                    description: 'Базовая функция',
-                    cost: cost // ВАЖНО: добавляем поле cost
-                });
-            });
-            
-            // Используем переданные функции или парсим заново
-            const features = detectedFeatures || this.parseRequirements(requirements);
-            
-            // Добавляем функции
-            features.forEach(feature => {
-                const hours = this.pricingSystem.features[feature] || 5;
-                const cost = hours * this.pricingSystem.hourlyRate;
-                totalHours += hours;
-                components.push({ 
-                    name: feature, 
-                    hours, 
-                    description: 'Специальная функция',
-                    cost: cost // ВАЖНО: добавляем поле cost
-                });
-            });
-            
-            // Минимум 40 часов на любой проект
-            totalHours = Math.max(totalHours, 40);
-            const totalCost = totalHours * this.pricingSystem.hourlyRate;
-            
-            const result = {
-                projectName: 'Telegram-бот',
-                components: components, // Уже содержат поле cost
-                totalHours,
-                totalCost,
-                hourlyRate: this.pricingSystem.hourlyRate,
-                complexity: 'средний',
-                timeline: `${Math.ceil(totalHours / 40)} недел${this.getWeekEnding(Math.ceil(totalHours / 40))}`,
-                detectedFeatures: features,
-                costBreakdown: components // Для совместимости
-            };
-
-            logger.info('Смета рассчитана через fallback', { 
-                totalCost: result.totalCost, 
-                totalHours: result.totalHours,
-                componentsCount: components.length
-            });
-
-            return result;
-
-        } catch (error) {
-            logger.error('Ошибка fallback расчета:', error);
             return this.getMinimalEstimate();
         }
     }
 
-    // Вспомогательный метод для правильного склонения "недель"
-    getWeekEnding(weeks) {
-        if (weeks === 1) return 'я';
-        if (weeks >= 2 && weeks <= 4) return 'и';
-        return 'ь';
-    }
+    // Генерация сметы через GPT с анализом ниши
+    async generateEstimateWithGPT(requirements, conversation = []) {
+        try {
+            // Подготавливаем контекст из диалога
+            const contextText = conversation.length > 0 
+                ? conversation.map(msg => `${msg.role}: ${msg.content}`).join('\n')
+                : requirements;
 
-    // Парсинг требований из текста
-    parseRequirements(text) {
-        const lower = text.toLowerCase();
-        const detectedFeatures = [];
-        
-        // Улучшенные паттерны для точного распознавания
-        const improvedPatterns = {
-            // E-commerce
-            'каталог товаров': /каталог[а-я\s]*товар|товар[а-я\s]*каталог|список товаров|ассортимент/i,
-            'корзина': /корзин[аеу]|добавить в заказ|оформить заказ|cart/i,
-            'интеграция платежей': /(интеграция[а-я\s]*)?плат[её]ж|оплат[аеу]|payment|pay|касс[аеу]/i,
-            'система скидок': /скидк[аиеу]|промокод|discount|акци[яи]/i,
-            'отслеживание доставки': /отслежив[а-я]*доставк|трек[а-я]*доставк|статус доставки/i,
+            const estimationPrompt = `Ты - опытный техлид с 10+ лет опыта оценки проектов Telegram-ботов.
+
+ЗАДАЧА: Проанализируй диалог/требования и создай детальную смету.
+
+ДИАЛОГ/ТРЕБОВАНИЯ:
+${contextText}
+
+ИНСТРУКЦИИ:
+1. Определи нишу/отрасль бизнеса клиента
+2. Извлеки ВСЕ упомянутые функции (явно и косвенно)
+3. Добавь необходимые технические функции, которые нужны но не были упомянуты
+4. Оцени время в часах для каждой функции с учетом:
+   - Сложности реализации
+   - Интеграций с внешними сервисами
+   - Специфики отрасли
+   - Необходимости тестирования
+5. Добавь базовые компоненты (структура бота, БД, админка и т.д.)
+
+БАЗОВЫЕ КОМПОНЕНТЫ (обязательны для любого бота):
+${JSON.stringify(this.pricingSystem.baseComponents, null, 2)}
+
+ПРАВИЛА ОЦЕНКИ ВРЕМЕНИ:
+- Простая кнопка/команда: 0.5-1 час
+- Форма с валидацией: 2-4 часа
+- Интеграция с внешним API: 6-12 часов
+- Сложная бизнес-логика: 8-20 часов
+- Платежные системы: 10-15 часов
+- Личный кабинет: 8-12 часов
+- Система уведомлений: 4-8 часов
+- Аналитика и отчеты: 10-20 часов
+
+ВАЖНО: Учитывай специфику отрасли! Например:
+- Медицина требует повышенной безопасности (+30% времени)
+- Финансы требуют точных расчетов (+25% времени)
+- E-commerce требует надежности платежей (+20% времени)
+
+ФОРМАТ ОТВЕТА (строго JSON):
+{
+    "projectName": "Telegram-бот для [отрасль/описание]",
+    "industry": "определенная отрасль",
+    "components": [
+        {
+            "name": "Название функции",
+            "hours": 10,
+            "description": "Что включает",
+            "category": "feature|base|integration|admin|analytics"
+        }
+    ],
+    "totalHours": 100,
+    "complexity": "простой|средний|сложный|очень сложный",
+    "risks": ["риск 1", "риск 2"],
+    "timeline": "X недель/месяцев",
+    "recommendations": ["совет 1", "совет 2"],
+    "detectedFeatures": ["список всех найденных функций"]
+}`;
+
+            const messages = [
+                { role: 'system', content: estimationPrompt },
+                { role: 'user', content: 'Создай детальную смету на основе предоставленной информации.' }
+            ];
+
+            const response = await GPTService.chat(messages);
+            const gptEstimate = JSON.parse(response);
             
-            // Записи и бронирование  
-            'календарь записи': /календар[ьяи][а-я\s]*запис|запис[аеиь][а-я\s]*календар|расписани[ея]/i,
-            'выбор специалиста': /выбор[а-я\s]*специалист|специалист[а-я\s]*выбор|мастер[а-я\s]*выбор/i,
-            'напоминания': /напомин[а-я]*|уведомлени[яеи]|notification|reminder/i,
-            'отмена/перенос записи': /отмен[аеу][а-я\s]*запис|перенос[а-я\s]*запис|отложить/i,
-            'интеграция с CRM': /crm|интеграция[а-я\s]*crm|система учёта/i,
+            // Добавляем расчет стоимости
+            const totalCost = gptEstimate.totalHours * this.pricingSystem.hourlyRate;
             
-            // AI и аналитика
-            'интеграция GPT': /gpt|chatgpt|ai|искусственный интеллект|умн[ыаяое][а-я\s]*бот/i,
-            'обработка изображений': /обработк[аеу][а-я\s]*изображен|фото[а-я\s]*обработк|анализ фото/i,
-            'распознавание голоса': /распознаван[а-я]*голос|голос[а-я\s]*распознав|voice recognition/i,
-            'генерация отчетов': /генерац[а-я]*отчёт|создан[а-я]*отчёт|отчётност/i,
-            'дашборд аналитики': /дашборд|dashboard|аналитик[аеу]|статистик[аеу]/i,
+            // Добавляем стоимость к каждому компоненту
+            const componentsWithCost = gptEstimate.components.map(comp => ({
+                ...comp,
+                cost: comp.hours * this.pricingSystem.hourlyRate
+            }));
             
-            // Коммуникации
-            'рассылки': /рассылк[аеиу]|массов[а-я]*отправк|newsletter|mailing/i,
-            'персонализация': /персонализац[а-я]*|индивидуальн[а-я]*подход|personalization/i,
-            'многоязычность': /многоязычн[а-я]*|мультиязычн[а-я]*|перевод|translation/i,
-            'уведомления': /уведомлени[яеи]|пуш[а-я\s]*уведомлени/i,
-            
-            // Специфичные функции
-            'натальная карта': /натальн[а-я]*карт|карт[аеу][а-я\s]*рожден/i,
-            'расчет гороскопа': /гороскоп|астрологическ[а-я]*расчёт|прогноз[а-я\s]*звёзд/i,
-            'анализ совместимости': /совместимост[ьи]|партнёрск[а-я]*анализ|compatibility/i,
-            'обработка изображений по фото': /анализ[а-я\s]*по фото|фото[а-я\s]*анализ|загруз[а-я]*фото/i
-        };
-        
-        // Проверяем каждый паттерн
-        Object.entries(improvedPatterns).forEach(([feature, pattern]) => {
-            if (pattern.test(text)) {
-                detectedFeatures.push(feature);
-            }
-        });
-        
-        // Дополнительная проверка для функций из pricing system
-        Object.keys(this.pricingSystem.features).forEach(feature => {
-            if (!detectedFeatures.includes(feature)) {
-                // Проверяем точное совпадение слов
-                const featureWords = feature.toLowerCase().split(' ');
-                const textWords = lower.split(/\s+/);
-                
-                const foundAllWords = featureWords.every(word => 
-                    textWords.some(textWord => textWord.includes(word) && word.length > 2)
-                );
-                
-                if (foundAllWords) {
-                    detectedFeatures.push(feature);
+            const result = {
+                ...gptEstimate,
+                components: componentsWithCost,
+                hourlyRate: this.pricingSystem.hourlyRate,
+                totalCost: Math.max(totalCost, this.pricingSystem.minProjectCost),
+                costBreakdown: componentsWithCost,
+                metadata: {
+                    generatedBy: 'GPT-4',
+                    timestamp: new Date(),
+                    industry: gptEstimate.industry
                 }
-            }
-        });
-        
-        // Удаляем дубликаты
-        return [...new Set(detectedFeatures)];
+            };
+
+            return result;
+
+        } catch (error) {
+            logger.error('Ошибка генерации сметы через GPT:', error);
+            return null;
+        }
     }
 
-    // Форматирование сметы
+    // Базовая оценка (когда GPT недоступен)
+    getBasicEstimate(requirements) {
+        try {
+            let totalHours = 0;
+            let components = [];
+            
+            // Добавляем только базовые компоненты
+            Object.entries(this.pricingSystem.baseComponents).forEach(([name, hours]) => {
+                totalHours += hours;
+                components.push({ 
+                    name, 
+                    hours, 
+                    description: 'Базовый компонент',
+                    cost: hours * this.pricingSystem.hourlyRate,
+                    category: 'base'
+                });
+            });
+            
+            // Добавляем примерную оценку для дополнительного функционала
+            const estimatedFeatureHours = 40; // Средняя оценка
+            totalHours += estimatedFeatureHours;
+            components.push({
+                name: 'Специфичный функционал (требует уточнения)',
+                hours: estimatedFeatureHours,
+                description: 'Функции, описанные в требованиях',
+                cost: estimatedFeatureHours * this.pricingSystem.hourlyRate,
+                category: 'feature'
+            });
+            
+            const totalCost = totalHours * this.pricingSystem.hourlyRate;
+            
+            return {
+                projectName: 'Telegram-бот (базовая оценка)',
+                components: components,
+                totalHours,
+                totalCost: Math.max(totalCost, this.pricingSystem.minProjectCost),
+                hourlyRate: this.pricingSystem.hourlyRate,
+                complexity: 'требует уточнения',
+                timeline: `${Math.ceil(totalHours / 40)} недель (примерно)`,
+                detectedFeatures: ['Требуется детальный анализ через GPT'],
+                costBreakdown: components,
+                metadata: {
+                    generatedBy: 'fallback',
+                    warning: 'Это примерная оценка. Для точного расчета требуется анализ через GPT.'
+                }
+            };
+
+        } catch (error) {
+            logger.error('Ошибка базовой оценки:', error);
+            return this.getMinimalEstimate();
+        }
+    }
+
+    // Минимальная смета при критических ошибках
+    getMinimalEstimate() {
+        const hours = 40;
+        const cost = hours * this.pricingSystem.hourlyRate;
+        
+        return {
+            projectName: 'Базовый Telegram-бот',
+            components: [
+                { 
+                    name: 'Базовая разработка', 
+                    hours: hours, 
+                    description: 'Минимальный функционал',
+                    cost: cost,
+                    category: 'base'
+                }
+            ],
+            totalHours: hours,
+            totalCost: Math.max(cost, this.pricingSystem.minProjectCost),
+            hourlyRate: this.pricingSystem.hourlyRate,
+            complexity: 'простой',
+            timeline: '1 неделя',
+            detectedFeatures: [],
+            costBreakdown: [
+                { 
+                    name: 'Базовая разработка', 
+                    hours: hours, 
+                    cost: cost,
+                    description: 'Минимальный функционал'
+                }
+            ],
+            metadata: {
+                generatedBy: 'minimal-fallback',
+                warning: 'Минимальная оценка из-за ошибки системы'
+            }
+        };
+    }
+
+    // Форматирование сметы для отображения
     formatEstimateMessage(estimate) {
         const totalCost = Number(estimate.totalCost) || 0;
         const totalHours = Number(estimate.totalHours) || 0;
         
-        return `💰 **Расчет стоимости вашего проекта**
+        let message = `💰 **Расчет стоимости вашего проекта**
 
 📋 **${estimate.projectName}**
+${estimate.industry ? `🏢 **Отрасль:** ${estimate.industry}` : ''}
 
 ⏱️ **Оценка времени:** ${totalHours} часов (${estimate.timeline})
 
@@ -317,53 +261,32 @@ ${estimate.costBreakdown && estimate.costBreakdown.length > 0 ?
         return `• ${c.name}: ${hours}ч = ${cost.toLocaleString('ru-RU')} руб.`;
     }).join('\n') : 'Детализация недоступна'}
 
-⚡ **Сложность проекта:** ${estimate.complexity}
+⚡ **Сложность проекта:** ${estimate.complexity}`;
 
-${estimate.risks && estimate.risks.length > 0 ? 
-`⚠️ **Риски:**
-${estimate.risks.map(r => `• ${r}`).join('\n')}` : ''}
+        if (estimate.risks && estimate.risks.length > 0) {
+            message += `\n\n⚠️ **Риски:**\n${estimate.risks.map(r => `• ${r}`).join('\n')}`;
+        }
 
-${estimate.recommendations && estimate.recommendations.length > 0 ?
-`💡 **Рекомендации:**
-${estimate.recommendations.map(r => `• ${r}`).join('\n')}` : ''}
+        if (estimate.recommendations && estimate.recommendations.length > 0) {
+            message += `\n\n💡 **Рекомендации:**\n${estimate.recommendations.map(r => `• ${r}`).join('\n')}`;
+        }
 
----
-✅ Это предварительная оценка. Финальная стоимость может отличаться на ±15% после детального анализа ТЗ.`;
+        if (estimate.metadata?.warning) {
+            message += `\n\n⚠️ **Внимание:** ${estimate.metadata.warning}`;
+        }
+
+        message += `\n\n---\n✅ Это предварительная оценка. Финальная стоимость может отличаться на ±15% после детального анализа ТЗ.`;
+
+        return message;
     }
 
-    // Минимальная смета при ошибках
-    getMinimalEstimate() {
-        const hours = 40;
-        const cost = hours * this.pricingSystem.hourlyRate;
-        
-        return {
-            projectName: 'Базовый Telegram-бот',
-            components: [
-                { 
-                    name: 'Базовая разработка', 
-                    hours: hours, 
-                    description: 'Минимальный функционал',
-                    cost: cost // ВАЖНО: добавляем поле cost
-                }
-            ],
-            totalHours: hours,
-            totalCost: cost,
-            hourlyRate: this.pricingSystem.hourlyRate,
-            complexity: 'простой',
-            timeline: '1 неделя',
-            detectedFeatures: [],
-            costBreakdown: [
-                { 
-                    name: 'Базовая разработка', 
-                    hours: hours, 
-                    cost: cost,
-                    description: 'Минимальный функционал'
-                }
-            ]
-        };
+    // Парсинг требований (устаревший метод, оставлен для совместимости)
+    parseRequirements(text) {
+        logger.warn('Используется устаревший метод parseRequirements. Рекомендуется использовать GPT анализ.');
+        return [];
     }
 
-    // Получение примерной стоимости по категории
+    // Быстрая оценка по категории
     getQuickEstimate(category) {
         const quickEstimates = {
             'simple': { cost: 25000, description: 'Простой бот с базовыми функциями' },
@@ -375,4 +298,4 @@ ${estimate.recommendations.map(r => `• ${r}`).join('\n')}` : ''}
     }
 }
 
-module.exports = new EstimateService(); 
+module.exports = new EstimateService();
