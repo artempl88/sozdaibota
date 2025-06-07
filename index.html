@@ -1,0 +1,2767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Создай умного Telegram-бота за 1 день. Автоматизируем общение, продажи и аналитику через мощные боты с ИИ. От 7 900₽.">
+    <meta name="keywords" content="создать бота, telegram бот, создать бота в телеграмме, чат бот, разработка ботов, GPT интеграция">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Создать Бота - Умные Telegram боты за 1 день">
+    <meta property="og:description" content="Создай умного Telegram-бота за 1 день. Автоматизация общения, продаж и аналитики с ИИ.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://создать-бота.рф">
+    <title>Создать Бота - Умные Telegram боты с ИИ за 1 день | От 7900₽</title>
+    <link rel="canonical" href="https://создать-бота.рф">
+    
+    <!-- SVG Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230088CC'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='18' font-family='Arial'>🤖</text></svg>">
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==">
+    
+    <!-- Permissions Policy для микрофона -->
+    <meta http-equiv="Permissions-Policy" content="microphone=(self), camera=(self), geolocation=(), fullscreen=(self)">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js для 3D графики -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        /* CSS Variables */
+        :root {
+            --primary-blue: #0088CC;
+            --accent-gradient: linear-gradient(135deg, #00C2FF 0%, #84F0F5 100%);
+            --button-gradient: linear-gradient(135deg, #00C2FF, #0088CC);
+            --background-white: #FFFFFF;
+            --text-dark: #222222;
+            --text-light: #666666;
+            --soft-blue: #EAF3F7;
+            --shadow: 0 4px 12px rgba(0, 136, 204, 0.25);
+            --shadow-hover: 0 6px 16px rgba(0, 136, 204, 0.35);
+            --header-height: 80px;
+            --container-max-width: 1200px;
+            --gpt-chat-width: 400px;
+            --gpt-chat-height: 600px;
+            --transition-fast: 0.2s ease;
+            --transition-normal: 0.3s ease;
+            --transition-slow: 0.5s ease;
+        }
+
+        /* Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            overflow-x: hidden;
+            background: var(--background-white);
+        }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        /* Button Components */
+        .button {
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: 'Manrope', sans-serif;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition-normal);
+        }
+
+        .button-primary {
+            background: var(--button-gradient);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .button-primary.large {
+            padding: 16px 32px;
+            font-size: 1.1rem;
+            border-radius: 16px;
+        }
+
+        .button-secondary {
+            background: transparent;
+            color: var(--primary-blue);
+            border: 2px solid var(--primary-blue);
+        }
+
+        .button-secondary:hover {
+            background: var(--primary-blue);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-8px) rotate(1deg); }
+            66% { transform: translateY(-4px) rotate(-1deg); }
+        }
+
+        /* Header */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 136, 204, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        nav {
+            max-width: var(--container-max-width);
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--button-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: float 4s ease-in-out infinite;
+            box-shadow: var(--shadow);
+            aspect-ratio: 1;
+            min-width: 40px;
+            min-height: 40px;
+        }
+
+        .logo-icon::after {
+            content: '▶';
+            color: var(--background-white);
+            font-size: 1.5rem;
+            margin-left: 2px;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-blue);
+            background: var(--soft-blue);
+        }
+
+        .nav-cta {
+            margin-left: 1rem;
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            cursor: pointer;
+            padding: 0.5rem;
+            z-index: 1001;
+        }
+
+        .mobile-menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .mobile-menu-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--accent-gradient);
+            color: var(--background-white);
+            padding: 150px 0 100px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-emoji {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 1s ease-out 0.2s both;
+        }
+
+        .hero-description {
+            font-size: 1.3rem;
+            margin-bottom: 3rem;
+            opacity: 0.95;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        /* Sections */
+        .container {
+            max-width: var(--container-max-width);
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 4rem;
+            color: var(--text-dark);
+        }
+
+        /* Advantages Section */
+        .advantages {
+            padding: 100px 0;
+            background: var(--background-white);
+        }
+
+        .advantages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2.5rem;
+        }
+
+        .advantage-card {
+            background: var(--background-white);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            transition: all 0.4s ease;
+            border: 1px solid rgba(0, 136, 204, 0.08);
+            text-align: center;
+        }
+
+        .advantage-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .advantage-icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .advantage-card h3 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .advantage-card p {
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
+        /* Testimonials Section */
+        .testimonials {
+            padding: 100px 0;
+            background: var(--soft-blue);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .testimonial-card {
+            background: var(--background-white);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-4px);
+        }
+
+        /* Contact Section */
+        .contact {
+            padding: 100px 0;
+            background: var(--background-white);
+        }
+
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--background-white);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(0, 136, 204, 0.08);
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            background: var(--background-white);
+            color: var(--text-dark);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: var(--background-white);
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        footer a {
+            color: #84F0F5;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* GPT Assistant Styles */
+        .gpt-assistant {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .gpt-toggle-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .gpt-toggle-label {
+            background: linear-gradient(135deg, #0088CC 0%, #00C2FF 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateX(20px);
+            animation: slideInLabel 0.5s ease 1s forwards;
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+
+        @keyframes slideInLabel {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .gpt-toggle-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 136, 204, 0.4);
+        }
+
+        .gpt-toggle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #0088CC 0%, #00C2FF 100%);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 25px rgba(0, 136, 204, 0.3);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gpt-toggle:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 12px 35px rgba(0, 136, 204, 0.4);
+        }
+
+        .gpt-toggle-3d {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            background: linear-gradient(135deg, 
+                rgba(0, 255, 255, 0.1) 0%, 
+                rgba(0, 136, 204, 0.3) 50%, 
+                rgba(138, 43, 226, 0.1) 100%);
+            overflow: hidden;
+        }
+
+        .gpt-toggle-3d::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(0, 255, 255, 0.4) 0%,
+                rgba(0, 255, 255, 0.1) 30%,
+                transparent 60%
+            );
+            animation: holographicPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes holographicPulse {
+            0%, 100% {
+                opacity: 0.6;
+                transform: scale(1) rotate(0deg);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1) rotate(180deg);
+            }
+        }
+
+        .gpt-toggle-fallback {
+            font-size: 2.5rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+
+        .gpt-chat {
+            position: fixed;
+            bottom: 120px;
+            right: 30px;
+            width: var(--gpt-chat-width);
+            height: var(--gpt-chat-height);
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 10000;
+            overflow: hidden;
+            border: 1px solid rgba(0, 136, 204, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .gpt-chat.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .gpt-header {
+            background: var(--button-gradient);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 20px 20px 0 0;
+            flex-shrink: 0;
+        }
+
+        .gpt-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .gpt-header-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .gpt-new-chat-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .gpt-new-chat-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .gpt-control-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .gpt-control-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .gpt-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .gpt-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Pre-chat form */
+        .pre-chat-form {
+            padding: 2rem;
+            background: white;
+            border-radius: 20px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pre-chat-form.hidden {
+            display: none !important;
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-header h3 {
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            font-size: 1.4rem;
+        }
+
+        .form-header p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem;
+            background: #f8f9fa;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .checkbox-label:hover {
+            background: #e3f2fd;
+            border-color: var(--primary-blue);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkmark {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin-right: 0.8rem;
+            position: relative;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + .checkmark {
+            background: var(--primary-blue);
+            border-color: var(--primary-blue);
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Dynamic contact fields */
+        .contact-field {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            border-left: 3px solid #2563eb;
+            animation: slideDown 0.3s ease;
+            display: none;
+        }
+
+        .contact-field label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #2563eb;
+        }
+
+        .contact-field input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            background: #ffffff;
+            color: #111827;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .contact-field input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .submit-form-btn {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: auto;
+            box-shadow: var(--shadow);
+        }
+
+        .submit-form-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .submit-form-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Chat interface */
+        .gpt-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            background: #f8f9fa;
+            min-height: 0;
+        }
+
+        .chat-mode .gpt-messages {
+            display: flex;
+        }
+
+        .gpt-message {
+            max-width: 80%;
+            padding: 1rem 1.2rem;
+            border-radius: 18px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            animation: messageSlideIn 0.3s ease;
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .gpt-message.user {
+            background: var(--primary-blue);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+        }
+
+        .gpt-message.assistant {
+            background: white;
+            color: var(--text-dark);
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eee;
+        }
+
+        .gpt-input-area {
+            padding: 1rem 1.5rem;
+            background: white;
+            border-top: 1px solid #eee;
+            border-radius: 0 0 20px 20px;
+            flex-shrink: 0;
+            display: none;
+        }
+
+        .chat-mode .gpt-input-area {
+            display: block;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .gpt-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            resize: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gpt-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        #voiceButton, #sendButton {
+            background: var(--primary-blue);
+            border: none;
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #voiceButton:hover, #sendButton:hover {
+            background: #006699;
+            transform: scale(1.1);
+        }
+
+        #voiceButton.recording {
+            background: #ff4444;
+            animation: recordingPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes recordingPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1.2rem 1.5rem;
+            background: white;
+            color: var(--text-light);
+            border-radius: 16px;
+            border-bottom-left-radius: 6px;
+            border: 1px solid #eee;
+            max-width: 85%;
+            align-self: flex-start;
+            animation: messageSlideIn 0.3s ease forwards;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-light);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.6;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        /* Notifications */
+        .gpt-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: var(--text-dark);
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            z-index: 10001;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        .gpt-notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Fullscreen mode */
+        .gpt-assistant.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10001;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gpt-assistant.fullscreen .gpt-toggle-container {
+            display: none;
+        }
+
+        .gpt-assistant.fullscreen .gpt-chat {
+            position: relative;
+            width: 90%;
+            height: 90%;
+            max-width: 1000px;
+            max-height: 800px;
+            bottom: auto;
+            right: auto;
+            opacity: 1;
+            visibility: visible;
+            transform: none;
+            border-radius: 20px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .mobile-menu-toggle {
+                display: block;
+            }
+
+            .nav-links {
+                position: fixed;
+                top: 0;
+                right: 0;
+                height: 100vh;
+                width: 250px;
+                background: white;
+                box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+                flex-direction: column;
+                padding: 5rem 2rem 2rem;
+                gap: 1rem;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                z-index: 1000;
+            }
+
+            .nav-links.mobile-open {
+                transform: translateX(0);
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .advantages-grid,
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .gpt-assistant {
+                bottom: 20px;
+                right: 20px;
+            }
+
+            .gpt-toggle {
+                width: 60px;
+                height: 60px;
+            }
+
+            .gpt-toggle-label {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.8rem;
+            }
+
+            .gpt-chat {
+                width: calc(100vw - 40px);
+                right: 20px;
+                height: 70vh;
+                max-height: 600px;
+                bottom: 85px;
+            }
+
+            .contact-form {
+                padding: 2rem 1.5rem;
+                margin: 0 0.5rem;
+            }
+
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utility classes */
+        .hidden { display: none !important; }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0088CC 0%, #00C2FF 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10002;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .loading-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 0 auto 2rem;
+            animation: loadingPulse 2s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .loading-logo::after {
+            content: '🧠';
+        }
+
+        @keyframes loadingPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loading">
+        <div class="loading-content">
+            <div class="loading-logo"></div>
+            <div class="loading-text">🧠 Думаю... Прокачиваю нейроны.</div>
+            <div class="loading-subtext">Готовлю для тебя крутого бота</div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <nav>
+            <a href="#" class="logo">
+                <div class="logo-icon"></div>
+                <span>Создать Бота</span>
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#advantages">Возможности</a></li>
+                <li><a href="#portfolio">Портфолио</a></li>
+                <li><a href="#pricing">Тарифы</a></li>
+                <li><a href="#contact">Контакты</a></li>
+                <li class="nav-cta">
+                    <a href="#contact" class="button button-primary">Создать бота</a>
+                </li>
+            </ul>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle">☰</button>
+        </nav>
+    </header>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-emoji">🧠</div>
+            <h1>Создание умного Telegram-бота за 1 день | Разработка чат-ботов с ИИ и автоматизацией</h1>
+            <div class="hero-description">
+                🤖 Мы автоматизируем общение, продажи и аналитику через мощные боты с искусственным интеллектом.
+            </div>
+            <div class="hero-buttons">
+                <a href="#contact" class="button button-primary large">🚀 Заказать бота</a>
+                <a href="#portfolio" class="button button-secondary large">📂 Примеры работ</a>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 12px; backdrop-filter: blur(10px);">
+                <p style="margin-bottom: 1rem; font-size: 1rem; opacity: 0.9;">
+                    💡 <strong>Не знаешь, что именно нужно?</strong> Наш GPT-помощник поможет сформулировать задачу и создаст готовое ТЗ!
+                </p>
+                <button onclick="document.getElementById('gptToggle').click()" style="background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 0.75rem 1.5rem; border-radius: 25px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='translateY(0)'">
+                    🤖 Запустить GPT-помощника
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advantages Section -->
+    <section class="advantages" id="advantages">
+        <div class="container">
+            <h2 class="section-title">Что умеют наши боты</h2>
+            
+            <div class="advantages-grid">
+                <div class="advantage-card">
+                    <span class="advantage-icon">🤖</span>
+                    <h3>Автоматические ответы</h3>
+                    <p>Бот отвечает на вопросы 24/7, обрабатывает заявки и направляет клиентов по воронке продаж без участия человека.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">📊</span>
+                    <h3>CRM-интеграция</h3>
+                    <p>Автоматическое создание лидов в amoCRM, Bitrix24, отправка данных в Google Sheets и другие системы.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">💰</span>
+                    <h3>Приём платежей</h3>
+                    <p>Интеграция с платежными системами: ЮKassa, Stripe, PayPal. Автоматическая обработка заказов и счетов.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">💬</span>
+                    <h3>ChatGPT и Claude</h3>
+                    <p>Подключаем нейросети для умных диалогов. Бот понимает контекст, дает экспертные ответы и консультирует клиентов.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">🎤</span>
+                    <h3>Голосовые сообщения</h3>
+                    <p>Распознавание речи, генерация аудио-ответов. Клиенты могут общаться голосом, бот отвечает текстом или аудио.</p>
+                </div>
+                <div class="advantage-card">
+                    <span class="advantage-icon">⚡</span>
+                    <h3>Быстрый запуск</h3>
+                    <p>Запускаем базового бота за 1 день. Готовые шаблоны для разных сфер: магазины, услуги, образование.</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 3rem;">
+                <a href="#contact" class="button button-primary large">Получи демо</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials">
+        <div class="container">
+            <h2 class="section-title">Отзывы клиентов</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div style="color: #FFA500; font-size: 1.2rem; margin-bottom: 1rem;">⭐⭐⭐⭐⭐</div>
+                    <p style="font-style: italic; margin-bottom: 1rem;">
+                        "Заказали бота для нашего интернет-магазина. За месяц автоматизировали 70% заказов. Клиенты довольны, мы тоже!"
+                    </p>
+                    <div style="font-weight: 600; color: var(--text-dark);">Анна Петрова</div>
+                    <div style="color: var(--text-light); font-size: 0.9rem;">Директор "Обувь Онлайн"</div>
+                </div>
+                <div class="testimonial-card">
+                    <div style="color: #FFA500; font-size: 1.2rem; margin-bottom: 1rem;">⭐⭐⭐⭐⭐</div>
+                    <p style="font-style: italic; margin-bottom: 1rem;">
+                        "Бот с GPT для нашей школы программирования — это бомба! Отвечает на вопросы учеников лучше некоторых преподавателей."
+                    </p>
+                    <div style="font-weight: 600; color: var(--text-dark);">Михаил Сидоров</div>
+                    <div style="color: var(--text-light); font-size: 0.9rem;">Основатель IT-Academy</div>
+                </div>
+                <div class="testimonial-card">
+                    <div style="color: #FFA500; font-size: 1.2rem; margin-bottom: 1rem;">⭐⭐⭐⭐⭐</div>
+                    <p style="font-style: italic; margin-bottom: 1rem;">
+                        "Сделали за 3 дня то, на что у нас ушло бы 3 месяца. Профессионально, быстро, с пониманием бизнеса."
+                    </p>
+                    <div style="font-weight: 600; color: var(--text-dark);">Елена Козлова</div>
+                    <div style="color: var(--text-light); font-size: 0.9rem;">Маркетинг-директор "Новосёл"</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact" id="contact">
+        <div class="container">
+            <h2 class="section-title">Готов создать своего бота?</h2>
+            <form class="contact-form" id="contactForm">
+                <div class="form-group">
+                    <label for="name">Имя</label>
+                    <input type="text" id="name" name="name" required placeholder="Как к вам обращаться?">
+                </div>
+                <div class="form-group">
+                    <label for="telegram">Telegram @username</label>
+                    <input type="text" id="telegram" name="telegram" placeholder="@your_username">
+                </div>
+                <div class="form-group">
+                    <label for="message">Что должен уметь бот</label>
+                    <textarea id="message" name="message" rows="5" required placeholder="Опиши задачу: продавать товары, отвечать на вопросы, собирать заявки... Чем подробнее — тем точнее расчёт."></textarea>
+                </div>
+                <button type="submit" class="button button-primary large" style="width: 100%;">Отправить</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Создать Бота. Делаем боты правильно. | <a href="mailto:hello@создать-бота.рф">hello@создать-бота.рф</a> | <a href="https://t.me/создать_бота">@создать_бота</a></p>
+        </div>
+    </footer>
+
+    <!-- GPT Assistant Widget -->
+    <div class="gpt-assistant" id="gptAssistant">
+        <div class="gpt-toggle-container">
+            <button class="gpt-toggle" id="gptToggle">
+                <div class="gpt-toggle-3d" id="gptToggle3D"></div>
+                <div class="gpt-toggle-fallback">🧠</div>
+            </button>
+            <div class="gpt-toggle-label">
+                <span style="display: block; font-weight: 700; margin-bottom: 2px;">🧠 Нейро-Помощник</span>
+                <span style="display: block; font-size: 0.7rem; opacity: 0.9; font-weight: 400;">Создание ТЗ с ИИ</span>
+            </div>
+        </div>
+        <div class="gpt-chat" id="gptChat">
+            <div class="gpt-header">
+                <div class="gpt-title">🧠 GPT-Помощник</div>
+                <div class="gpt-header-controls">
+                    <button class="gpt-new-chat-btn" id="gptNewChat" title="Начать новый чат">
+                        ✨ Новый чат
+                    </button>
+                    <button class="gpt-control-btn" id="gptFullscreen" title="Развернуть на весь экран">
+                        ⛶
+                    </button>
+                    <button class="gpt-close" id="gptClose">×</button>
+                </div>
+            </div>
+            
+            <!-- Форма быстрой анкеты -->
+            <div class="pre-chat-form" id="preChatForm">
+                <div class="form-header">
+                    <h3>Персонализированная консультация</h3>
+                    <p>Несколько вопросов помогут нам подготовить максимально точное предложение для вашего проекта</p>
+                </div>
+                
+                <form id="quickSurveyForm">
+                    <div class="form-group">
+                        <label for="userName">Как к вам обращаться?</label>
+                        <input type="text" id="userName" name="name" required placeholder="Ваше имя">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userPosition">Ваша роль в проекте</label>
+                        <input type="text" id="userPosition" name="position" required placeholder="Директор, маркетолог, владелец бизнеса...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userIndustry">Сфера деятельности</label>
+                        <select id="userIndustry" name="industry" required>
+                            <option value="">Выберите вашу сферу</option>
+                            <option value="E-commerce / Интернет-магазин">Интернет-магазин / E-commerce</option>
+                            <option value="Услуги (салоны, сервисы)">Услуги (салоны красоты, ремонт, клининг)</option>
+                            <option value="Образование">Образование и курсы</option>
+                            <option value="Недвижимость">Недвижимость</option>
+                            <option value="Медицина / Здоровье">Медицина и здоровье</option>
+                            <option value="Финансы / Банки">Финансы и страхование</option>
+                            <option value="Производство">Производство</option>
+                            <option value="Логистика / Доставка">Логистика и доставка</option>
+                            <option value="HoReCa (кафе, рестораны)">Ресторанный бизнес</option>
+                            <option value="IT / Технологии">IT и технологии</option>
+                            <option value="Консалтинг">Консалтинг и услуги для бизнеса</option>
+                            <option value="Другое">Другая сфера</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userBudget">Планируемый бюджет на проект</label>
+                        <select id="userBudget" name="budget" required>
+                            <option value="">Укажите примерный бюджет</option>
+                            <option value="до 25 000₽">до 25 000₽</option>
+                            <option value="25 000 - 50 000₽">25 000 - 50 000₽</option>
+                            <option value="50 000 - 100 000₽">50 000 - 100 000₽</option>
+                            <option value="100 000 - 200 000₽">100 000 - 200 000₽</option>
+                            <option value="свыше 200 000₽">свыше 200 000₽</option>
+                            <option value="обсудим индивидуально">Обсудим индивидуально</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Удобные способы связи</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="Telegram" onchange="toggleContactField('telegram', this.checked)">
+                                <span class="checkmark"></span>
+                                <span>Telegram</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="Email" onchange="toggleContactField('email', this.checked)">
+                                <span class="checkmark"></span>
+                                <span>Email</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="Телефон" onchange="toggleContactField('phone', this.checked)">
+                                <span class="checkmark"></span>
+                                <span>Телефон</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="preferredChannels" value="WhatsApp" onchange="toggleContactField('whatsapp', this.checked)">
+                                <span class="checkmark"></span>
+                                <span>WhatsApp</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Динамические поля контактов -->
+                    <div id="contactFields">
+                        <div id="telegramField" class="contact-field">
+                            <label for="telegramContact">Ваш Telegram</label>
+                            <input type="text" id="telegramContact" name="telegramContact" placeholder="@username">
+                        </div>
+                        
+                        <div id="emailField" class="contact-field">
+                            <label for="emailContact">Email адрес</label>
+                            <input type="email" id="emailContact" name="emailContact" placeholder="name@example.com">
+                        </div>
+                        
+                        <div id="phoneField" class="contact-field">
+                            <label for="phoneContact">Номер телефона</label>
+                            <input type="tel" id="phoneContact" name="phoneContact" placeholder="+7 (999) 123-45-67">
+                        </div>
+                        
+                        <div id="whatsappField" class="contact-field">
+                            <label for="whatsappContact">WhatsApp</label>
+                            <input type="tel" id="whatsappContact" name="whatsappContact" placeholder="+7 (999) 123-45-67">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userTimeline">Когда планируете запустить?</label>
+                        <select id="userTimeline" name="timeline" required>
+                            <option value="">Выберите подходящие сроки</option>
+                            <option value="срочно (1-3 дня)">Как можно скорее (1-3 дня)</option>
+                            <option value="быстро (неделя)">На этой неделе</option>
+                            <option value="стандартно (2-3 недели)">В течение месяца</option>
+                            <option value="не спешим (месяц+)">Не спешим</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="submit-form-btn">
+                        Начать консультацию
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Чат интерфейс -->
+            <div class="gpt-messages" id="gptMessages"></div>
+            <div class="gpt-input-area" id="gptInputArea">
+                <div class="input-wrapper">
+                    <input type="text" class="gpt-input" id="gptInput" placeholder="Напишите ваш ответ...">
+                    <button id="voiceButton" title="Записать голосовое сообщение">🎤</button>
+                    <button id="sendButton" title="Отправить сообщение">📤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Модульная структура кода
+        (function() {
+            'use strict';
+
+            // Utility functions
+            const Utils = {
+                // Безопасное получение элемента
+                getElement(id) {
+                    const element = document.getElementById(id);
+                    if (!element) {
+                        console.warn(`Element with id "${id}" not found`);
+                    }
+                    return element;
+                },
+
+                // Безопасное добавление обработчика событий
+                addEventListener(element, event, handler) {
+                    if (element && element.addEventListener) {
+                        element.addEventListener(event, handler);
+                        return () => element.removeEventListener(event, handler);
+                    }
+                    return () => {};
+                },
+
+                // Дебаунс функция
+                debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func(...args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                },
+
+                // Генерация уникального ID
+                generateId() {
+                    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+                }
+            };
+
+            // Session Manager
+            class SessionManager {
+                constructor() {
+                    this.sessionId = null;
+                    this.fingerprint = this.generateFingerprint();
+                }
+
+                generateFingerprint() {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        let canvasFingerprint = '';
+                        if (ctx) {
+                            ctx.textBaseline = 'top';
+                            ctx.font = '14px Arial';
+                            ctx.fillText('Создать Бота fingerprint', 2, 2);
+                            canvasFingerprint = canvas.toDataURL();
+                        } else {
+                            canvasFingerprint = 'canvas_unavailable';
+                        }
+                        
+                        const browserData = {
+                            userAgent: navigator.userAgent || 'unknown',
+                            language: navigator.language || 'unknown',
+                            languages: navigator.languages ? navigator.languages.join(',') : 'unknown',
+                            platform: navigator.platform || 'unknown',
+                            screen: `${screen.width || 0}x${screen.height || 0}x${screen.colorDepth || 0}`,
+                            timezone: (() => {
+                                try {
+                                    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+                                } catch (e) {
+                                    return 'unknown';
+                                }
+                            })(),
+                            canvas: canvasFingerprint.slice(-50),
+                            cookieEnabled: navigator.cookieEnabled !== undefined ? navigator.cookieEnabled : 'unknown',
+                            doNotTrack: navigator.doNotTrack || 'unknown',
+                            hardwareConcurrency: navigator.hardwareConcurrency || 'unknown'
+                        };
+                        
+                        const fingerprintString = Object.values(browserData).join('|');
+                        const base64Hash = btoa(fingerprintString);
+                        return base64Hash.replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+                        
+                    } catch (error) {
+                        console.warn('Error generating fingerprint:', error);
+                        const fallbackData = `${Date.now()}_${Math.random()}_${navigator.userAgent || 'unknown'}`;
+                        return btoa(fallbackData).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+                    }
+                }
+            }
+
+            // GPT Assistant Class
+            class GPTAssistant {
+                constructor() {
+                    this.sessionManager = new SessionManager();
+                    this.isActive = false;
+                    this.conversationHistory = [];
+                    this.formData = null;
+                    this.isFormMode = true;
+                    this.isLoadingHistory = false;
+                    
+                    this.mediaRecorder = null;
+                    this.audioChunks = [];
+                    
+                    this.apiConfig = {
+                        formEndpoint: '/api/pre-chat-form',
+                        messageEndpoint: '/api/pre-chat-message',
+                        historyEndpoint: '/api/pre-chat-history',
+                        sessionCheckEndpoint: '/api/check-session'
+                    };
+
+                    this.elements = {};
+                    this.listeners = [];
+                }
+                
+                init() {
+                    this.cacheElements();
+                    this.bindEvents();
+                    this.checkExistingSession();
+                }
+
+                cacheElements() {
+                    this.elements = {
+                        toggle: Utils.getElement('gptToggle'),
+                        chat: Utils.getElement('gptChat'),
+                        close: Utils.getElement('gptClose'),
+                        newChatBtn: Utils.getElement('gptNewChat'),
+                        fullscreenBtn: Utils.getElement('gptFullscreen'),
+                        form: Utils.getElement('quickSurveyForm'),
+                        input: Utils.getElement('gptInput'),
+                        sendButton: Utils.getElement('sendButton'),
+                        voiceButton: Utils.getElement('voiceButton'),
+                        messages: Utils.getElement('gptMessages'),
+                        inputArea: Utils.getElement('gptInputArea'),
+                        preChatForm: Utils.getElement('preChatForm'),
+                        assistant: Utils.getElement('gptAssistant')
+                    };
+                }
+
+                bindEvents() {
+                    // Основные кнопки управления
+                    if (this.elements.toggle) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.toggle, 'click', () => this.toggleChat())
+                        );
+                    }
+
+                    if (this.elements.close) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.close, 'click', () => this.handleCloseClick())
+                        );
+                    }
+
+                    if (this.elements.newChatBtn) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.newChatBtn, 'click', () => this.startNewChat())
+                        );
+                    }
+
+                    if (this.elements.fullscreenBtn) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.fullscreenBtn, 'click', () => this.toggleFullscreen())
+                        );
+                    }
+
+                    // Форма
+                    if (this.elements.form) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.form, 'submit', (e) => this.handleFormSubmit(e))
+                        );
+                    }
+
+                    // Чат интерфейс
+                    if (this.elements.input) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.input, 'keypress', (e) => {
+                                if (e.key === 'Enter' && !this.isFormMode) {
+                                    this.sendMessage();
+                                }
+                            })
+                        );
+                    }
+
+                    if (this.elements.sendButton) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.sendButton, 'click', () => {
+                                if (!this.isFormMode) {
+                                    this.sendMessage();
+                                }
+                            })
+                        );
+                    }
+
+                    if (this.elements.voiceButton) {
+                        this.listeners.push(
+                            Utils.addEventListener(this.elements.voiceButton, 'click', () => {
+                                if (!this.isFormMode) {
+                                    this.handleVoiceRecording();
+                                }
+                            })
+                        );
+                    }
+
+                    // Клик по лейблу
+                    const label = document.querySelector('.gpt-toggle-label');
+                    if (label) {
+                        this.listeners.push(
+                            Utils.addEventListener(label, 'click', () => {
+                                this.toggleChat();
+                                label.style.transform = 'scale(0.95)';
+                                setTimeout(() => {
+                                    label.style.transform = '';
+                                }, 150);
+                            })
+                        );
+                        label.style.cursor = 'pointer';
+                    }
+
+                    // Клик вне окна в fullscreen режиме
+                    this.listeners.push(
+                        Utils.addEventListener(document, 'click', (e) => {
+                            if (this.elements.assistant && 
+                                this.elements.assistant.classList.contains('fullscreen') && 
+                                e.target === this.elements.assistant) {
+                                this.toggleFullscreen();
+                            }
+                        })
+                    );
+
+                    // ESC для закрытия
+                    this.listeners.push(
+                        Utils.addEventListener(document, 'keydown', (e) => {
+                            if (e.key === 'Escape') {
+                                this.handleEscapeKey();
+                            }
+                        })
+                    );
+
+                    // Адаптация при изменении размера окна
+                    this.listeners.push(
+                        Utils.addEventListener(window, 'resize', Utils.debounce(() => {
+                            this.handleResize();
+                        }, 250))
+                    );
+                }
+
+                handleEscapeKey() {
+                    const navLinks = Utils.getElement('navLinks');
+                    
+                    // Приоритет 1: Закрытие мобильного меню
+                    if (navLinks && navLinks.classList.contains('mobile-open')) {
+                        window.closeMobileMenu && window.closeMobileMenu();
+                        return;
+                    }
+                    
+                    // Приоритет 2: GPT помощник
+                    if (this.elements.assistant && this.elements.assistant.classList.contains('fullscreen')) {
+                        if (window.innerWidth <= 768) {
+                            this.closeChat();
+                        } else {
+                            this.toggleFullscreen();
+                        }
+                    }
+                }
+
+                handleResize() {
+                    if (this.isActive && this.elements.assistant) {
+                        if (window.innerWidth <= 768) {
+                            // На мобильных принудительно включаем полноэкранный режим
+                            this.elements.assistant.classList.add('fullscreen');
+                            if (this.elements.fullscreenBtn) {
+                                this.elements.fullscreenBtn.innerHTML = '◱';
+                                this.elements.fullscreenBtn.title = 'Свернуть (рекомендуется полноэкранный режим)';
+                            }
+                        }
+                    }
+                }
+
+                toggleChat() {
+                    if (!this.elements.chat || !this.elements.assistant) return;
+                    
+                    if (!this.isActive) {
+                        this.elements.chat.classList.add('active');
+                        this.isActive = true;
+                        
+                        // Логика полноэкранного режима
+                        if (window.innerWidth <= 768) {
+                            // На мобильных ВСЕГДА включаем полноэкранный режим
+                            this.elements.assistant.classList.add('fullscreen');
+                            this.updateFullscreenButton(true);
+                        } else {
+                            // На ПК НЕ включаем полноэкранный режим по умолчанию
+                            this.elements.assistant.classList.remove('fullscreen');
+                            this.updateFullscreenButton(false);
+                        }
+                        
+                        // Фокус на форму или инпут
+                        setTimeout(() => {
+                            if (this.isFormMode) {
+                                const firstInput = document.querySelector('#preChatForm input:not([type="checkbox"])');
+                                if (firstInput) firstInput.focus();
+                            } else {
+                                if (this.elements.input) this.elements.input.focus();
+                            }
+                        }, 300);
+                    } else {
+                        this.closeChat();
+                    }
+                }
+
+                closeChat() {
+                    if (!this.elements.chat || !this.elements.assistant) return;
+                    
+                    this.elements.chat.classList.remove('active');
+                    this.isActive = false;
+                    
+                    // Всегда убираем полноэкранный режим при закрытии
+                    this.elements.assistant.classList.remove('fullscreen');
+                    this.updateFullscreenButton(false);
+                }
+
+                handleCloseClick() {
+                    if (window.innerWidth <= 768) {
+                        this.closeChat();
+                        return;
+                    }
+                    
+                    if (this.elements.assistant && this.elements.assistant.classList.contains('fullscreen')) {
+                        this.toggleFullscreen();
+                        this.showNotification('Вернулись в обычный режим', '📱', 2000);
+                    } else {
+                        this.closeChat();
+                    }
+                }
+
+                toggleFullscreen() {
+                    if (!this.elements.assistant || !this.elements.fullscreenBtn) return;
+                    
+                    const isFullscreen = this.elements.assistant.classList.contains('fullscreen');
+                    
+                    if (isFullscreen) {
+                        // Выходим из полноэкранного режима
+                        this.elements.assistant.classList.remove('fullscreen');
+                        this.updateFullscreenButton(false);
+                        
+                        if (window.innerWidth <= 768) {
+                            this.showNotification('На мобильных рекомендуется полноэкранный режим', '📱', 2000);
+                        }
+                    } else {
+                        // Входим в полноэкранный режим
+                        this.elements.assistant.classList.add('fullscreen');
+                        this.updateFullscreenButton(true);
+                        
+                        const message = window.innerWidth <= 768 
+                            ? 'Полноэкранный режим активирован' 
+                            : 'Полноэкранный режим активирован! Нажмите ESC для выхода';
+                        this.showNotification(message, '🖥️', 3000);
+                    }
+                    
+                    // Прокручиваем к последнему сообщению
+                    this.scrollToLatestMessage();
+                }
+
+                updateFullscreenButton(isFullscreen) {
+                    if (this.elements.fullscreenBtn) {
+                        this.elements.fullscreenBtn.innerHTML = isFullscreen ? '◱' : '⛶';
+                        this.elements.fullscreenBtn.title = isFullscreen ? 'Свернуть' : 'Развернуть на весь экран';
+                    }
+                }
+
+                scrollToLatestMessage() {
+                    setTimeout(() => {
+                        if (this.elements.messages && this.elements.messages.children.length > 0) {
+                            this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                        }
+                    }, 300);
+                }
+
+                startNewChat() {
+                    if (confirm('Вы уверены, что хотите начать новый чат? Текущая история будет очищена.')) {
+                        console.log('🔄 Начинаем новый чат...');
+                        
+                        this.sessionManager.sessionId = null;
+                        this.formData = null;
+                        this.conversationHistory = [];
+                        this.isFormMode = true;
+                        
+                        this.clearChatInterface();
+                        this.showForm();
+                        
+                        if (this.elements.newChatBtn) {
+                            this.elements.newChatBtn.classList.add('highlight');
+                            setTimeout(() => {
+                                this.elements.newChatBtn.classList.remove('highlight');
+                            }, 2000);
+                        }
+                        
+                        this.showNotification('Новый чат начат! Заполните анкету для персонализированной консультации.', '🚀', 4000);
+                    }
+                }
+
+                clearChatInterface() {
+                    if (this.elements.messages) {
+                        this.elements.messages.innerHTML = '';
+                    }
+                    if (this.elements.input) {
+                        this.elements.input.value = '';
+                    }
+                }
+
+                showForm() {
+                    if (this.elements.preChatForm) {
+                        this.elements.preChatForm.style.display = 'flex';
+                        this.elements.preChatForm.classList.remove('hidden');
+                    }
+                    
+                    if (this.elements.chat) {
+                        this.elements.chat.classList.remove('chat-mode');
+                    }
+                    
+                    if (this.elements.messages) {
+                        this.elements.messages.style.display = 'none';
+                    }
+                    
+                    if (this.elements.inputArea) {
+                        this.elements.inputArea.style.display = 'none';
+                    }
+                    
+                    const form = Utils.getElement('quickSurveyForm');
+                    if (form) {
+                        form.reset();
+                        const contactFields = document.querySelectorAll('.contact-field');
+                        contactFields.forEach(field => {
+                            field.style.display = 'none';
+                            const input = field.querySelector('input');
+                            if (input) input.required = false;
+                        });
+                    }
+                    
+                    setTimeout(() => {
+                        const firstInput = document.querySelector('#preChatForm input:not([type="checkbox"])');
+                        if (firstInput) firstInput.focus();
+                    }, 100);
+                }
+
+                async checkExistingSession() {
+                    try {
+                        console.log('🔍 Проверяем существующую сессию...');
+                        
+                        const response = await fetch(this.apiConfig.sessionCheckEndpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                fingerprint: this.sessionManager.fingerprint
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success && data.sessionFound) {
+                            console.log('✅ Найдена существующая сессия:', data.sessionId);
+                            
+                            this.sessionManager.sessionId = data.sessionId;
+                            this.formData = data.formData;
+                            this.isFormMode = false;
+                            
+                            this.hideForm();
+                            this.showChatInterface();
+                            
+                            await this.loadChatHistory();
+                        } else {
+                            console.log('📝 Новый пользователь, показываем форму анкеты');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка проверки сессии:', error);
+                    }
+                }
+
+                hideForm() {
+                    if (this.elements.preChatForm) {
+                        this.elements.preChatForm.style.display = 'none';
+                        this.elements.preChatForm.classList.add('hidden');
+                    }
+                }
+
+                showChatInterface() {
+                    this.hideForm();
+                    
+                    if (this.elements.chat) {
+                        this.elements.chat.classList.add('chat-mode');
+                    }
+                    
+                    if (this.elements.messages) {
+                        this.elements.messages.style.display = 'flex';
+                    }
+                    
+                    if (this.elements.inputArea) {
+                        this.elements.inputArea.style.display = 'block';
+                    }
+                    
+                    if (this.formData && this.formData.name) {
+                        const title = document.querySelector('.gpt-title');
+                        if (title) {
+                            title.innerHTML = `💬 Консультация с ${this.formData.name}`;
+                        }
+                    }
+                    
+                    this.scrollToLatestMessage();
+                }
+
+                async handleFormSubmit(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(e.target);
+                    const submitBtn = e.target.querySelector('.submit-form-btn');
+                    
+                    const contacts = {};
+                    const preferredChannels = formData.getAll('preferredChannels');
+                    
+                    preferredChannels.forEach(channel => {
+                        const fieldMap = {
+                            'Telegram': 'telegramContact',
+                            'Email': 'emailContact', 
+                            'Телефон': 'phoneContact',
+                            'WhatsApp': 'whatsappContact'
+                        };
+                        
+                        const fieldName = fieldMap[channel];
+                        if (fieldName) {
+                            const value = formData.get(fieldName);
+                            if (value && value.trim()) {
+                                contacts[channel] = value.trim();
+                            }
+                        }
+                    });
+                    
+                    const data = {
+                        name: formData.get('name'),
+                        contactInfo: Object.keys(contacts).map(channel => 
+                            `${channel}: ${contacts[channel]}`
+                        ).join(', '),
+                        contacts: contacts,
+                        position: formData.get('position'),
+                        industry: formData.get('industry'),
+                        budget: formData.get('budget'),
+                        preferredChannels: preferredChannels,
+                        timeline: formData.get('timeline'),
+                        fingerprint: this.sessionManager.fingerprint
+                    };
+                    
+                    if (!this.validateFormData(data)) {
+                        return;
+                    }
+                    
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '⏳ Обрабатываем...';
+                    e.target.classList.add('form-loading');
+                    
+                    try {
+                        const response = await fetch(this.apiConfig.formEndpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.sessionManager.sessionId = result.sessionId;
+                            this.formData = data;
+                            
+                            this.switchToChatMode(result.welcomeMessage);
+                            
+                        } else {
+                            throw new Error(result.error || 'Ошибка отправки формы');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Ошибка отправки формы:', error);
+                        this.showError('Произошла ошибка. Попробуйте еще раз.');
+                        
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '🚀 Начать консультацию';
+                        e.target.classList.remove('form-loading');
+                    }
+                }
+
+                validateFormData(data) {
+                    const required = ['name', 'position', 'industry', 'budget', 'timeline'];
+                    for (let field of required) {
+                        if (!data[field] || data[field].trim() === '') {
+                            this.showError(`Заполните поле "${this.getFieldName(field)}"`);
+                            return false;
+                        }
+                    }
+                    
+                    if (!data.preferredChannels || data.preferredChannels.length === 0) {
+                        this.showError('Выберите хотя бы один канал связи');
+                        return false;
+                    }
+                    
+                    if (!data.contacts) {
+                        this.showError('Ошибка: контактные данные не найдены');
+                        return false;
+                    }
+                    
+                    for (let channel of data.preferredChannels) {
+                        if (!data.contacts[channel] || data.contacts[channel].trim() === '') {
+                            this.showError(`Заполните контакт для канала "${channel}"`);
+                            return false;
+                        }
+                    }
+                    
+                    if (data.contacts && data.contacts.Email) {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(data.contacts.Email)) {
+                            this.showError('Введите корректный email адрес');
+                            return false;
+                        }
+                    }
+                    
+                    if (data.contacts && (data.contacts['Телефон'] || data.contacts['WhatsApp'])) {
+                        const phoneFields = [data.contacts['Телефон'], data.contacts['WhatsApp']].filter(Boolean);
+                        for (let phone of phoneFields) {
+                            if (!/\d{10,}/.test(phone.replace(/\D/g, ''))) {
+                                this.showError('Введите корректный номер телефона (минимум 10 цифр)');
+                                return false;
+                            }
+                        }
+                    }
+                    
+                    if (data.contacts && data.contacts.Telegram) {
+                        const telegram = data.contacts.Telegram;
+                        if (!telegram.startsWith('@') && !telegram.includes('t.me/')) {
+                            this.showError('Введите Telegram в формате @username или ссылку t.me/username');
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                }
+
+                getFieldName(field) {
+                    const names = {
+                        'name': 'Имя',
+                        'contactInfo': 'Контактные данные',
+                        'position': 'Должность',
+                        'industry': 'Отрасль',
+                        'budget': 'Бюджет',
+                        'timeline': 'Сроки'
+                    };
+                    return names[field] || field;
+                }
+
+                showError(message) {
+                    alert(message);
+                }
+
+                switchToChatMode(welcomeMessage) {
+                    this.hideForm();
+                    
+                    if (this.elements.chat) {
+                        this.elements.chat.classList.add('chat-mode');
+                    }
+                    
+                    if (this.elements.messages) {
+                        this.elements.messages.style.display = 'flex';
+                    }
+                    
+                    if (this.elements.inputArea) {
+                        this.elements.inputArea.style.display = 'block';
+                    }
+                    
+                    this.isFormMode = false;
+                    
+                    this.addMessage('assistant', welcomeMessage);
+                    
+                    const title = document.querySelector('.gpt-title');
+                    if (title) {
+                        title.innerHTML = `💬 Консультация с ${this.formData.name}`;
+                    }
+                    
+                    setTimeout(() => {
+                        if (this.elements.input) this.elements.input.focus();
+                    }, 300);
+                    
+                    this.scrollToLatestMessage();
+                }
+
+                sendMessage() {
+                    if (!this.elements.input) return;
+                    
+                    const message = this.elements.input.value.trim();
+                    
+                    if (message && !this.isFormMode) {
+                        this.handleInput(message);
+                        this.elements.input.value = '';
+                    }
+                }
+
+                async handleInput(userMessage) {
+                    if (!this.sessionManager.sessionId || this.isFormMode) {
+                        return;
+                    }
+                    
+                    this.addMessage('user', userMessage);
+                    this.showTypingIndicator();
+                    
+                    try {
+                        const response = await fetch(this.apiConfig.messageEndpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                sessionId: this.sessionManager.sessionId,
+                                message: userMessage
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        this.hideTypingIndicator();
+                        
+                        if (result.success) {
+                            this.addMessage('assistant', result.message);
+                            
+                            this.conversationHistory.push(
+                                { role: 'user', content: userMessage },
+                                { role: 'assistant', content: result.message }
+                            );
+                        } else {
+                            throw new Error(result.error || 'Ошибка обработки сообщения');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Ошибка отправки сообщения:', error);
+                        this.hideTypingIndicator();
+                        this.addMessage('assistant', 'Извините, произошла ошибка. Попробуйте еще раз.');
+                    }
+                }
+
+                addMessage(role, content) {
+                    if (!this.elements.messages) return;
+                    
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `gpt-message ${role}`;
+                    messageDiv.innerHTML = this.formatMessage(content);
+                    
+                    this.elements.messages.appendChild(messageDiv);
+                    
+                    if (!this.isLoadingHistory) {
+                        this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                    }
+                }
+
+                formatMessage(content) {
+                    return content
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/\n/g, '<br>');
+                }
+
+                showTypingIndicator() {
+                    if (!this.elements.messages) return;
+                    
+                    const typingDiv = document.createElement('div');
+                    typingDiv.className = 'typing-indicator';
+                    typingDiv.id = 'typingIndicator';
+                    typingDiv.innerHTML = '<span></span><span></span><span></span>';
+                    
+                    this.elements.messages.appendChild(typingDiv);
+                    this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                }
+
+                hideTypingIndicator() {
+                    const indicator = Utils.getElement('typingIndicator');
+                    if (indicator) {
+                        indicator.remove();
+                    }
+                }
+
+                async handleVoiceRecording() {
+                    if (!this.mediaRecorder) {
+                        await this.startVoiceRecording();
+                    } else if (this.mediaRecorder.state === 'recording') {
+                        this.stopVoiceRecording();
+                    }
+                }
+
+                async startVoiceRecording() {
+                    try {
+                        console.log('🎤 Запрашиваем разрешение на микрофон...');
+                        
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            audio: {
+                                sampleRate: 16000,
+                                channelCount: 1,
+                                volume: 1.0
+                            }
+                        });
+                        
+                        console.log('✅ Разрешение получено, начинаем запись');
+                        
+                        this.mediaRecorder = new MediaRecorder(stream, {
+                            mimeType: 'audio/webm;codecs=opus'
+                        });
+                        
+                        this.audioChunks = [];
+                        
+                        this.mediaRecorder.ondataavailable = (event) => {
+                            if (event.data.size > 0) {
+                                this.audioChunks.push(event.data);
+                            }
+                        };
+                        
+                        this.mediaRecorder.onstop = async () => {
+                            console.log('🔄 Запись завершена, обрабатываем аудио...');
+                            
+                            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                            await this.sendVoiceMessage(audioBlob);
+                            
+                            stream.getTracks().forEach(track => track.stop());
+                            this.mediaRecorder = null;
+                        };
+                        
+                        if (this.elements.voiceButton) {
+                            this.elements.voiceButton.innerHTML = '⏹️';
+                            this.elements.voiceButton.classList.add('recording');
+                            this.elements.voiceButton.title = 'Остановить запись';
+                        }
+                        
+                        this.mediaRecorder.start();
+                        
+                        console.log('🎙️ Запись началась');
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка записи голоса:', error);
+                        
+                        let errorMessage = 'Ошибка доступа к микрофону';
+                        if (error.name === 'NotAllowedError') {
+                            errorMessage = 'Разрешите доступ к микрофону для записи голосовых сообщений';
+                        } else if (error.name === 'NotFoundError') {
+                            errorMessage = 'Микрофон не найден. Проверьте подключение устройства';
+                        }
+                        
+                        this.showError(errorMessage);
+                    }
+                }
+
+                stopVoiceRecording() {
+                    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                        console.log('⏹️ Останавливаем запись...');
+                        this.mediaRecorder.stop();
+                        
+                        if (this.elements.voiceButton) {
+                            this.elements.voiceButton.innerHTML = '🎤';
+                            this.elements.voiceButton.classList.remove('recording');
+                            this.elements.voiceButton.title = 'Записать голосовое сообщение';
+                        }
+                    }
+                }
+
+                async sendVoiceMessage(audioBlob) {
+                    if (!this.sessionManager.sessionId) {
+                        console.error('❌ Нет ID сессии для отправки голосового сообщения');
+                        return;
+                    }
+                    
+                    try {
+                        console.log('📤 Отправляем голосовое сообщение на сервер...');
+                        
+                        this.addMessage('user', '🎤 Голосовое сообщение (обрабатывается...)');
+                        this.showTypingIndicator();
+                        
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob, 'voice.webm');
+                        formData.append('sessionId', this.sessionManager.sessionId);
+                        formData.append('conversation', JSON.stringify(this.conversationHistory));
+                        
+                        const response = await fetch('/api/voice-message', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        const result = await response.json();
+                        
+                        this.hideTypingIndicator();
+                        
+                        if (result.success) {
+                            console.log('✅ Голосовое сообщение обработано');
+                            
+                            const transcription = result.transcription || '';
+                            
+                            if (!transcription.trim()) {
+                                const messages = document.querySelectorAll('.gpt-message.user');
+                                const lastUserMessage = messages[messages.length - 1];
+                                if (lastUserMessage && lastUserMessage.textContent.includes('обрабатывается')) {
+                                    lastUserMessage.innerHTML = '❌ Не удалось распознать речь';
+                                }
+                                this.addMessage('assistant', 'Извините, не удалось распознать вашу речь. Попробуйте говорить четче или напишите текстом.');
+                                return;
+                            }
+                            
+                            const messages = document.querySelectorAll('.gpt-message.user');
+                            const lastUserMessage = messages[messages.length - 1];
+                            if (lastUserMessage && lastUserMessage.textContent.includes('обрабатывается')) {
+                                lastUserMessage.innerHTML = `🎤 "${transcription}"`;
+                            }
+                            
+                            this.addMessage('assistant', result.message);
+                            
+                            this.conversationHistory.push(
+                                { role: 'user', content: transcription },
+                                { role: 'assistant', content: result.message }
+                            );
+                            
+                        } else {
+                            throw new Error(result.error || 'Ошибка обработки голосового сообщения');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка отправки голосового сообщения:', error);
+                        
+                        this.hideTypingIndicator();
+                        
+                        const messages = document.querySelectorAll('.gpt-message.user');
+                        const lastUserMessage = messages[messages.length - 1];
+                        if (lastUserMessage && lastUserMessage.textContent.includes('обрабатывается')) {
+                            lastUserMessage.innerHTML = '❌ Ошибка обработки голоса';
+                        }
+                        
+                        this.addMessage('assistant', 'Извините, не удалось обработать голосовое сообщение. Попробуйте написать текстом.');
+                    }
+                }
+
+                async loadChatHistory() {
+                    if (!this.sessionManager.sessionId) return;
+                    
+                    try {
+                        console.log('📜 Загружаем историю чата...');
+                        
+                        const response = await fetch(`${this.apiConfig.historyEndpoint}/${this.sessionManager.sessionId}`);
+                        const result = await response.json();
+                        
+                        if (result.success && result.chatHistory) {
+                            if (this.elements.messages) {
+                                this.elements.messages.innerHTML = '';
+                            }
+                            
+                            this.isLoadingHistory = true;
+                            
+                            result.chatHistory.forEach(msg => {
+                                this.addMessage(msg.role, msg.content);
+                            });
+                            
+                            this.isLoadingHistory = false;
+                            
+                            this.conversationHistory = result.chatHistory;
+                            
+                            console.log(`✅ Загружено ${result.chatHistory.length} сообщений`);
+                            
+                            setTimeout(() => {
+                                if (this.elements.messages) {
+                                    this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                                }
+                            }, 300);
+                        } else {
+                            console.log('📝 История чата пуста или недоступна');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка загрузки истории чата:', error);
+                    }
+                }
+
+                showNotification(message, icon = '✨', duration = 3000) {
+                    const existingNotifications = document.querySelectorAll('.gpt-notification');
+                    existingNotifications.forEach(notification => notification.remove());
+                    
+                    const notification = document.createElement('div');
+                    notification.className = 'gpt-notification';
+                    notification.innerHTML = `${icon} ${message}`;
+                    
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.classList.add('show');
+                    }, 100);
+                    
+                    setTimeout(() => {
+                        notification.classList.remove('show');
+                        setTimeout(() => {
+                            if (notification.parentNode) {
+                                notification.parentNode.removeChild(notification);
+                            }
+                        }, 300);
+                    }, duration);
+                }
+
+                showWelcomeNotification() {
+                    const hasSeenWelcome = localStorage.getItem('gpt-welcome-seen');
+                    if (hasSeenWelcome) return;
+                    
+                    this.showNotification(
+                        'У вас есть вопросы? GPT-помощник готов помочь с созданием ТЗ для бота!', 
+                        '🤖', 
+                        6000
+                    );
+                    
+                    const label = document.querySelector('.gpt-toggle-label');
+                    if (label) {
+                        label.classList.add('highlight');
+                        setTimeout(() => {
+                            label.classList.remove('highlight');
+                        }, 4000);
+                    }
+                    
+                    localStorage.setItem('gpt-welcome-seen', 'true');
+                }
+
+                destroy() {
+                    this.listeners.forEach(removeListener => removeListener());
+                    this.listeners = [];
+                    this.elements = {};
+                }
+            }
+
+            // Mobile Menu Manager
+            class MobileMenuManager {
+                constructor() {
+                    this.toggle = Utils.getElement('mobileMenuToggle');
+                    this.navLinks = Utils.getElement('navLinks');
+                    this.overlay = Utils.getElement('mobileMenuOverlay');
+                    this.init();
+                }
+
+                init() {
+                    if (this.toggle) {
+                        Utils.addEventListener(this.toggle, 'click', () => this.toggleMenu());
+                    }
+
+                    if (this.overlay) {
+                        Utils.addEventListener(this.overlay, 'click', () => this.closeMenu());
+                    }
+
+                    document.querySelectorAll('.nav-links a').forEach(link => {
+                        Utils.addEventListener(link, 'click', () => {
+                            if (window.innerWidth <= 768) {
+                                setTimeout(() => this.closeMenu(), 100);
+                            }
+                        });
+                    });
+
+                    Utils.addEventListener(window, 'resize', Utils.debounce(() => {
+                        if (window.innerWidth > 768 && this.navLinks && this.navLinks.classList.contains('mobile-open')) {
+                            this.closeMenu();
+                        }
+                    }, 250));
+                }
+
+                toggleMenu() {
+                    if (this.navLinks && this.navLinks.classList.contains('mobile-open')) {
+                        this.closeMenu();
+                    } else {
+                        this.openMenu();
+                    }
+                }
+
+                openMenu() {
+                    if (this.navLinks) this.navLinks.classList.add('mobile-open');
+                    if (this.overlay) this.overlay.classList.add('active');
+                    if (this.toggle) {
+                        this.toggle.innerHTML = '✕';
+                        this.toggle.style.color = 'var(--primary-blue)';
+                    }
+                    document.body.style.overflow = 'hidden';
+                }
+
+                closeMenu() {
+                    if (this.navLinks) this.navLinks.classList.remove('mobile-open');
+                    if (this.overlay) this.overlay.classList.remove('active');
+                    if (this.toggle) {
+                        this.toggle.innerHTML = '☰';
+                        this.toggle.style.color = 'var(--text-dark)';
+                    }
+                    document.body.style.overflow = '';
+                }
+            }
+
+            // Global functions
+            window.toggleContactField = function(fieldType, isChecked) {
+                const fieldMap = {
+                    'telegram': 'telegramField',
+                    'email': 'emailField', 
+                    'phone': 'phoneField',
+                    'whatsapp': 'whatsappField'
+                };
+                
+                const fieldId = fieldMap[fieldType];
+                const field = Utils.getElement(fieldId);
+                
+                if (field) {
+                    const input = field.querySelector('input');
+                    
+                    if (isChecked) {
+                        field.style.display = 'block';
+                        if (input) {
+                            input.required = true;
+                            setTimeout(() => input.focus(), 100);
+                        }
+                    } else {
+                        field.style.display = 'none';
+                        if (input) {
+                            input.required = false;
+                            input.value = '';
+                        }
+                    }
+                }
+            };
+
+            // Initialize everything
+            let gptAssistant = null;
+            let mobileMenuManager = null;
+
+            document.addEventListener('DOMContentLoaded', function() {
+                // Loading screen
+                const loading = Utils.getElement('loading');
+                if (loading) {
+                    setTimeout(() => {
+                        loading.classList.add('hidden');
+                    }, 1500);
+                }
+
+                // Initialize managers
+                gptAssistant = new GPTAssistant();
+                gptAssistant.init();
+                
+                mobileMenuManager = new MobileMenuManager();
+
+                // Global reference for mobile menu
+                window.closeMobileMenu = () => {
+                    if (mobileMenuManager) {
+                        mobileMenuManager.closeMenu();
+                    }
+                };
+
+                // Show welcome notification after delay
+                setTimeout(() => {
+                    if (gptAssistant) {
+                        gptAssistant.showWelcomeNotification();
+                    }
+                }, 4000);
+
+                // Smooth scrolling
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    Utils.addEventListener(anchor, 'click', function(e) {
+                        e.preventDefault();
+                        const target = document.querySelector(this.getAttribute('href'));
+                        if (target) {
+                            target.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'start'
+                            });
+                        }
+                    });
+                });
+
+                // Header scroll effect
+                Utils.addEventListener(window, 'scroll', Utils.debounce(() => {
+                    const header = document.querySelector('header');
+                    if (header) {
+                        if (window.scrollY > 100) {
+                            header.style.background = 'rgba(255, 255, 255, 0.98)';
+                            header.style.boxShadow = '0 4px 20px rgba(0, 136, 204, 0.15)';
+                        } else {
+                            header.style.background = 'rgba(255, 255, 255, 0.95)';
+                            header.style.boxShadow = 'none';
+                        }
+                    }
+                }, 100));
+
+                // Contact form submission
+                const contactForm = Utils.getElement('contactForm');
+                if (contactForm) {
+                    Utils.addEventListener(contactForm, 'submit', function(e) {
+                        e.preventDefault();
+                        
+                        const submitBtn = this.querySelector('button[type="submit"]');
+                        const originalText = submitBtn.innerHTML;
+                        
+                        submitBtn.innerHTML = '⏳ Отправляем заявку...';
+                        submitBtn.disabled = true;
+                        
+                        setTimeout(() => {
+                            submitBtn.innerHTML = '✅ Заявка отправлена!';
+                            submitBtn.style.background = '#00C851';
+                            
+                            setTimeout(() => {
+                                alert('🎉 Супер! Заявка принята.\n\n🚀 Что дальше:\n• Изучим твою задачу (15 мин)\n• Подготовим предложение с ценой\n• Свяжемся в течение 2 часов\n\nА пока можешь написать в Telegram: @создать_бота');
+                                this.reset();
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.style.background = '';
+                                submitBtn.disabled = false;
+                            }, 1000);
+                        }, 2000);
+                    });
+                }
+
+                // Easter egg in logo
+                let logoClicks = 0;
+                const logoIcon = document.querySelector('.logo-icon');
+                if (logoIcon) {
+                    Utils.addEventListener(logoIcon, 'click', function() {
+                        logoClicks++;
+                        if (logoClicks === 3) {
+                            this.style.animation = 'pulse 0.5s ease';
+                            setTimeout(() => {
+                                this.style.animation = 'float 4s ease-in-out infinite';
+                            }, 500);
+                        }
+                        if (logoClicks === 5) {
+                            alert('🎯 Секретный режим активирован!\n\nТы нашёл пасхалку! За внимательность дарим скидку 10% на первого бота.\n\nПромокод: EASTER2024\n\nИспользуй при заказе! 🎁');
+                            logoClicks = 0;
+                        }
+                    });
+                }
+            });
+
+        })();
+    </script>
+
+    <!-- Schema.org structured data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Создать Бота",
+        "description": "Создай умного Telegram-бота за 1 день. Автоматизация общения, продаж и аналитики с ИИ",
+        "url": "https://создать-бота.рф",
+        "logo": "https://создать-бота.рф/logo.png",
+        "slogan": "Создай умного Telegram-бота за 1 день",
+        "foundingDate": "2024",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+7-XXX-XXX-XX-XX",
+            "contactType": "customer service",
+            "availableLanguage": "Russian"
+        },
+        "sameAs": [
+            "https://t.me/создать_бота"
+        ]
+    }
+    </script>
+</body>
+</html>

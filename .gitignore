@@ -1,0 +1,71 @@
+# ===========================================
+# .gitignore - Исключения для Git
+# ===========================================
+
+# Зависимости
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+Переменные окружения
+.env
+environment.env
+
+# Логи
+logs/
+*.log
+log/
+combined.log
+error.log
+
+# Временные файлы
+temp/
+tmp/
+.tmp/
+
+# Загрузки пользователей
+uploads/*.webm
+uploads/*.mp3
+uploads/*.wav
+uploads/*.ogg
+uploads/*.m4a
+
+# Служебные скрипты очистки
+cleanup.bat
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Сборка и кэш
+dist/
+build/
+.cache/
+
+# Тестовые файлы
+coverage/
+.nyc_output/
+
+# Процессы
+.pid
+.seed
+.pm2/
+
+# Папки IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Прочие
+.sass-cache/
+.connect.lock
+.typingsrc
+
+# Старые файлы (исключаем если появятся случайно)
+server.js.backup
+index.html.old
+*-копия.*
