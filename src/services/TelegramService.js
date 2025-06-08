@@ -100,7 +100,7 @@ class TelegramService {
                 contacts: session.contacts || {}
             } : null;
 
-            // Формируем сообщение БЕЗ parse_mode для избежания ошибок
+            // Формируем сообщение БЕЗ истории диалога
             let message = '🎯 НОВАЯ СМЕТА!\n\n';
             
             // Информация о клиенте
@@ -123,29 +123,6 @@ class TelegramService {
                 }
                 
                 message += '\n';
-            }
-            
-            // ДОБАВЛЯЕМ ИСТОРИЮ ДИАЛОГА
-            if (session && session.chatHistory && session.chatHistory.length > 0) {
-                message += '💬 ИСТОРИЯ ДИАЛОГА:\n';
-                message += '━━━━━━━━━━━━━━━━━━━━\n';
-                
-                // Берем последние 10 сообщений или все, если меньше
-                const messagesToShow = session.chatHistory.slice(-10);
-                
-                messagesToShow.forEach((msg, index) => {
-                    if (msg.role === 'user') {
-                        message += `👤 Клиент: ${msg.content}\n\n`;
-                    } else if (msg.role === 'assistant') {
-                        // Сокращаем слишком длинные сообщения ассистента
-                        const content = msg.content.length > 300 
-                            ? msg.content.substring(0, 300) + '...' 
-                            : msg.content;
-                        message += `🤖 Бот: ${content}\n\n`;
-                    }
-                });
-                
-                message += '━━━━━━━━━━━━━━━━━━━━\n\n';
             }
             
             // Информация о смете
@@ -188,33 +165,6 @@ class TelegramService {
             message += `🔗 ID сессии: ${sessionId}\n`;
             message += `📅 Дата: ${new Date().toLocaleString('ru-RU')}`;
 
-            // Проверяем длину сообщения (Telegram лимит 4096 символов)
-            if (message.length > 4000) {
-                // Если слишком длинное, обрезаем историю диалога
-                logger.warn('Сообщение слишком длинное, сокращаем историю диалога');
-                
-                // Пересобираем сообщение с меньшим количеством истории
-                message = '🎯 НОВАЯ СМЕТА!\n\n';
-                
-                // Клиент инфо (сокращенно)
-                if (clientInfo) {
-                    message += `👤 ${clientInfo.name} | ${clientInfo.industry} | ${clientInfo.budget}\n\n`;
-                }
-                
-                message += '💬 ПОСЛЕДНИЕ СООБЩЕНИЯ:\n';
-                const lastMessages = session.chatHistory.slice(-4);
-                lastMessages.forEach(msg => {
-                    const content = msg.content.substring(0, 150);
-                    message += `${msg.role === 'user' ? '👤' : '🤖'}: ${content}\n`;
-                });
-                
-                message += '\n💰 СМЕТА:\n';
-                message += `Стоимость: ${estimate.totalCost.toLocaleString('ru-RU')} руб.\n`;
-                message += `Срок: ${estimate.timeline}\n\n`;
-                
-                message += '📋 Детали в следующем сообщении...';
-            }
-
             // Создаем клавиатуру с кнопками
             const keyboard = {
                 inline_keyboard: [
@@ -247,6 +197,86 @@ class TelegramService {
                 messageId: sentMessage.message_id,
                 sessionId 
             });
+
+            // ОТПРАВЛЯЕМ ИСТОРИЮ ДИАЛОГА КАК ФАЙЛ
+            if (session && session.chatHistory && session.chatHistory.length > 0) {
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const os = require('os');
+                    
+                    // Создаем временный файл
+                    const tempDir = os.tmpdir();
+                    const fileName = `dialog_${sessionId}_${Date.now()}.txt`;
+                    const filePath = path.join(tempDir, fileName);
+                    
+                    // Формируем содержимое файла
+                    let fileContent = `ИСТОРИЯ ДИАЛОГА\n`;
+                    fileContent += `================\n\n`;
+                    fileContent += `Клиент: ${clientInfo?.name || 'Не указано'}\n`;
+                    fileContent += `Отрасль: ${clientInfo?.industry || 'Не указано'}\n`;
+                    fileContent += `Дата: ${new Date().toLocaleString('ru-RU')}\n`;
+                    fileContent += `\n================\n\n`;
+                    
+                    // Добавляем сообщения
+                    session.chatHistory.forEach((msg, index) => {
+                        const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('ru-RU') : '';
+                        
+                        if (msg.role === 'user') {
+                            fileContent += `[${timestamp}] КЛИЕНТ:\n${msg.content}\n\n`;
+                        } else if (msg.role === 'assistant') {
+                            fileContent += `[${timestamp}] БОТ:\n${msg.content}\n\n`;
+                        }
+                        
+                        fileContent += '---\n\n';
+                    });
+                    
+                    // Добавляем информацию о смете
+                    fileContent += `\n================\n`;
+                    fileContent += `ИТОГОВАЯ СМЕТА\n`;
+                    fileContent += `================\n\n`;
+                    fileContent += `Стоимость: ${estimate.totalCost ? estimate.totalCost.toLocaleString('ru-RU') : 'не указана'} руб.\n`;
+                    fileContent += `Срок: ${estimate.timeline || 'не указан'}\n`;
+                    fileContent += `Часы: ${estimate.totalHours || 'не указано'}\n`;
+                    
+                    // Записываем файл
+                    await fs.promises.writeFile(filePath, fileContent, 'utf8');
+                    logger.info('📄 Файл с историей создан', { filePath });
+                    
+                    // Отправляем файл
+                    await this.bot.sendDocument(this.chatId, filePath, {
+                        caption: '📎 История диалога с клиентом'
+                    }, {
+                        filename: `История_диалога_${clientInfo?.name || sessionId}.txt`,
+                        contentType: 'text/plain'
+                    });
+                    
+                    logger.info('📤 Файл с историей отправлен');
+                    
+                    // Удаляем временный файл
+                    setTimeout(async () => {
+                        try {
+                            await fs.promises.unlink(filePath);
+                            logger.info('🗑️ Временный файл удален');
+                        } catch (err) {
+                            logger.warn('Не удалось удалить временный файл:', err.message);
+                        }
+                    }, 5000);
+                    
+                } catch (fileError) {
+                    logger.error('❌ Ошибка создания/отправки файла с историей:', fileError);
+                    
+                    // Если не удалось отправить файл, отправляем краткую историю текстом
+                    const shortHistory = session.chatHistory.slice(-3)
+                        .map(msg => `${msg.role === 'user' ? '👤' : '🤖'}: ${msg.content.substring(0, 100)}...`)
+                        .join('\n');
+                    
+                    await this.bot.sendMessage(
+                        this.chatId, 
+                        `📎 Не удалось прикрепить полную историю. Последние сообщения:\n\n${shortHistory}`
+                    );
+                }
+            }
 
             return true;
 
