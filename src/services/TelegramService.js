@@ -241,15 +241,26 @@ class TelegramService {
                     
                     // Записываем файл
                     await fs.promises.writeFile(filePath, fileContent, 'utf8');
-                    logger.info('📄 Файл с историей создан', { filePath });
-                    
-                    // Отправляем файл
-                    await this.bot.sendDocument(this.chatId, filePath, {
-                        caption: '📎 История диалога с клиентом'
-                    }, {
-                        filename: `История_диалога_${clientInfo?.name || sessionId}.txt`,
-                        contentType: 'text/plain'
+                    logger.info('📄 Файл с историей создан', { 
+                        filePath,
+                        fileSize: fileContent.length,
+                        messagesCount: session.chatHistory.length
                     });
+                    
+                    // Отправляем файл с правильными параметрами
+                    const fileOptions = {
+                        filename: `История_диалога_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.txt`,
+                        contentType: 'text/plain'
+                    };
+                    
+                    await this.bot.sendDocument(
+                        this.chatId, 
+                        filePath,
+                        {
+                            caption: '📎 История диалога с клиентом'
+                        },
+                        fileOptions
+                    );
                     
                     logger.info('📤 Файл с историей отправлен');
                     
@@ -382,8 +393,24 @@ class TelegramService {
             });
 
             try {
-                // Разбираем action
-                const [command, sessionId, estimateId] = action.split('_');
+                // ИСПРАВЛЕНО: правильный парсинг sessionId
+                // action format: approve_session_1749418553906_8cpbqtqbh_temp
+                const parts = action.split('_');
+                const command = parts[0]; // approve
+                
+                // Собираем sessionId обратно из частей
+                let sessionId = '';
+                let estimateId = '';
+                
+                if (parts[1] === 'session' && parts.length >= 4) {
+                    // sessionId = session_1749418553906_8cpbqtqbh
+                    sessionId = `${parts[1]}_${parts[2]}_${parts[3]}`;
+                    estimateId = parts[4] || 'temp';
+                } else {
+                    // Старый формат для обратной совместимости
+                    sessionId = parts[1];
+                    estimateId = parts[2];
+                }
                 
                 logger.info('Обработка команды', { command, sessionId, estimateId });
 
@@ -450,21 +477,31 @@ class TelegramService {
                 }
             );
             
-            // Формируем красивое сообщение для клиента
+            // Формируем красивое сообщение для клиента с полной сметой
             const totalCost = session.estimateData?.totalCost || 'уточняется у менеджера';
             const totalHours = session.estimateData?.totalHours || 'уточняется у менеджера';
             const timeline = session.estimateData?.timeline || '2-3 недели';
             
-            const approvedEstimateMessage = `✅ **Ваша смета утверждена!**\n\n` +
-                `💰 **Стоимость проекта:** ${typeof totalCost === 'number' ? totalCost.toLocaleString('ru-RU') : totalCost} руб.\n` +
-                `⏱️ **Срок разработки:** ${typeof totalHours === 'number' ? totalHours + ' часов' : totalHours}\n` +
-                `📅 **Общий срок:** ${timeline}\n\n` +
-                `📋 **Следующие шаги:**\n` +
-                `1. Мы свяжемся с вами для обсуждения деталей\n` +
-                `2. Подпишем договор\n` +
-                `3. Начнем разработку вашего бота\n\n` +
-                `📞 Ожидайте звонка от менеджера в течение 30 минут.\n\n` +
-                `Если у вас есть вопросы, напишите их здесь - я передам менеджеру.`;
+            let approvedEstimateMessage = `✅ **Ваша смета утверждена!**\n\n`;
+            approvedEstimateMessage += `💰 **Стоимость проекта:** ${typeof totalCost === 'number' ? totalCost.toLocaleString('ru-RU') : totalCost} руб.\n`;
+            approvedEstimateMessage += `⏱️ **Общее время разработки:** ${typeof totalHours === 'number' ? totalHours + ' часов' : totalHours}\n`;
+            approvedEstimateMessage += `📅 **Срок реализации:** ${timeline}\n\n`;
+            
+            // Добавляем состав работ если есть
+            if (session.estimateData?.features && session.estimateData.features.length > 0) {
+                approvedEstimateMessage += `📋 **В стоимость входит:**\n`;
+                session.estimateData.features.forEach(feature => {
+                    approvedEstimateMessage += `• ${feature}\n`;
+                });
+                approvedEstimateMessage += '\n';
+            }
+            
+            approvedEstimateMessage += `**Следующие шаги:**\n`;
+            approvedEstimateMessage += `1. Мы свяжемся с вами для обсуждения деталей\n`;
+            approvedEstimateMessage += `2. Подпишем договор и внесете предоплату\n`;
+            approvedEstimateMessage += `3. Начнем разработку вашего бота\n\n`;
+            approvedEstimateMessage += `📞 Ожидайте звонка от менеджера в течение 30 минут.\n\n`;
+            approvedEstimateMessage += `Если у вас есть вопросы по смете или хотите что-то изменить - напишите здесь.`;
             
             // Сохраняем утвержденную смету в chatHistory
             session.chatHistory.push({
