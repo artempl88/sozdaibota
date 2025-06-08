@@ -1,6 +1,5 @@
 const GPTService = require('./GPTService');
 const AdvancedGPTService = require('./AdvancedGPTService');
-const FeaturesService = require('./FeaturesService');
 const { Estimate } = require('../models');
 const logger = require('../utils/logger');
 
@@ -21,16 +20,12 @@ class EstimateService {
                 conversationLength: conversation.length
             });
             
-            // Генерируем смету через GPT с динамическим определением функций
+            // Генерируем смету через GPT
             const gptEstimate = await this.generateEstimateWithGPT(requirements, conversation);
             
             if (gptEstimate) {
-                // Сохраняем новые функции в каталог
-                await this.saveNewFeaturesToCatalog(gptEstimate.components);
-                
                 // Сохраняем смету в БД
                 const savedEstimate = await this.saveEstimateToDatabase(gptEstimate);
-                
                 return savedEstimate || gptEstimate;
             }
             
@@ -40,7 +35,6 @@ class EstimateService {
             logger.error('Критическая ошибка в calculateProjectEstimate:', error);
             
             // Fallback на базовую оценку
-            // Передаем requirements как строку для анализа
             const requirementsText = typeof requirements === 'string' 
                 ? requirements 
                 : JSON.stringify(requirements);
@@ -49,56 +43,66 @@ class EstimateService {
         }
     }
 
-    // Генерация сметы через GPT с динамическими функциями
+    // Генерация сметы через GPT
     async generateEstimateWithGPT(requirements, conversation) {
         try {
             const conversationText = conversation
-                .slice(-20) // Берем больше контекста
+                .slice(-20)
                 .map(msg => `${msg.role === 'user' ? 'Клиент' : 'Консультант'}: ${msg.content}`)
                 .join('\n\n');
 
-            // Получаем существующие функции для контекста
-            const existingFeatures = await FeaturesService.getAllFeatures();
-            const featuresContext = this.formatFeaturesForContext(existingFeatures);
+            logger.info('📝 Анализ диалога для сметы:', {
+                messageCount: conversation.length,
+                textLength: conversationText.length,
+                mentionsIntegration: conversationText.includes('интеграц'),
+                mentionsCRM: conversationText.includes('CRM') || conversationText.includes('Bitrix'),
+                mentionsLanguages: conversationText.includes('язык'),
+                mentionsAuth: conversationText.includes('авториз'),
+                mentionsAll: conversationText.includes('все обязательны') || conversationText.includes('Все обязательны')
+            });
 
             const estimatePrompt = `Ты - эксперт по оценке стоимости разработки Telegram-ботов. Проанализируй диалог и создай ДЕТАЛЬНУЮ смету, включив ВСЕ обсуждаемые функции.
 
 ДИАЛОГ С КЛИЕНТОМ:
 ${conversationText}
 
-КРИТИЧЕСКИ ВАЖНО: Внимательно прочитай весь диалог и найди ВСЕ функции, которые клиент подтвердил как "обязательные". НЕ ПРОПУСТИ НИ ОДНОЙ ФУНКЦИИ!
+КРИТИЧЕСКИ ВАЖНО: 
+- Внимательно прочитай ВЕСЬ диалог
+- Найди ВСЕ функции, которые клиент подтвердил как необходимые
+- НЕ ПРОПУСТИ НИ ОДНОЙ ФУНКЦИИ, особенно если клиент сказал "все обязательны"
 
-ПРАВИЛА СОЗДАНИЯ СМЕТЫ:
+ПРАВИЛА ОЦЕНКИ ВРЕМЕНИ И СТОИМОСТИ:
 1. Базовая ставка: 2000 руб/час
-2. ОБЯЗАТЕЛЬНО включи ВСЕ функции из диалога, особенно те, которые клиент назвал обязательными
-3. Для каждой функции создай отдельный компонент с конкретным названием
-4. Время на разработку:
-   - Простая функция: 8-15 часов
-   - Средняя функция: 15-25 часов  
-   - Сложная функция (интеграции, мультиязычность): 25-40 часов
-   - Очень сложная (авторизация, CRM): 40-60 часов
-5. Добавь 20-30% времени на тестирование
-6. Минимальная стоимость проекта: 150000 руб для сложных проектов
 
-ОСОБОЕ ВНИМАНИЕ обрати на:
-- Интеграции с внешними системами (CRM, платежи)
-- Поддержку нескольких языков
-- Системы авторизации и разграничения прав
-- Аналитику и отчетность
-- Административные панели
+2. Оценка времени разработки:
+   - Простая функция (FAQ, простые кнопки): 8-15 часов
+   - Средняя функция (формы, каталоги): 15-25 часов
+   - Сложная функция (бронирование, платежи): 25-40 часов
+   - Очень сложная (интеграции с CRM, API): 40-60 часов
+   - Мультиязычность: +50% времени ко всем функциям
+   - Авторизация и роли: 30-50 часов
 
-Создай смету в формате JSON:
+3. Обязательные компоненты для любого проекта:
+   - Базовая архитектура: 10-15 часов
+   - Админ панель: 20-30 часов
+   - Тестирование: 20-30% от общего времени
+   - Документация: 5-10 часов
+
+4. Минимальная стоимость:
+   - Простой бот: 80,000 руб
+   - Средний бот: 150,000 руб
+   - Сложный бот (с интеграциями): 300,000 руб
+
+ФОРМАТ ОТВЕТА - строго JSON:
 {
   "components": [
     {
       "name": "Конкретное название функции из диалога",
       "description": "Подробное описание что включает",
-      "category": "basic|catalog|payments|booking|integrations|communication|analytics|admin|special|custom",
-      "keywords": ["ключевое1", "ключевое2"],
+      "category": "basic|communication|integration|admin|special|custom",
       "hours": число_часов,
       "cost": стоимость_в_рублях,
-      "complexity": "low|medium|high|very_high",
-      "isNew": true/false
+      "complexity": "low|medium|high|very_high"
     }
   ],
   "totalHours": сумма_всех_часов,
@@ -106,15 +110,18 @@ ${conversationText}
   "timeline": "реалистичный_срок_в_неделях",
   "detectedFeatures": ["список", "всех", "обнаруженных", "функций"],
   "businessType": "тип_бизнеса_клиента",
-  "recommendations": ["рекомендация1", "рекомендация2"]
+  "recommendations": ["рекомендация1", "рекомендация2", "рекомендация3"]
 }
 
-ПРОВЕРЬ СЕБЯ: 
-- Включил ли ты ВСЕ функции из диалога?
-- Реалистична ли общая стоимость для такого объема работ?
-- Учтена ли сложность интеграций и дополнительных требований?
+ПРОВЕРЬ СЕБЯ ПЕРЕД ОТВЕТОМ:
+✓ Включил ли ты ВСЕ функции из диалога?
+✓ Учел ли сложность интеграций?
+✓ Добавил ли время на мультиязычность?
+✓ Реалистична ли итоговая стоимость?
 
 Верни ТОЛЬКО валидный JSON!`;
+
+            logger.info('🤖 Отправляем запрос к GPT для генерации сметы');
 
             const messages = [
                 { role: 'system', content: 'Ты эксперт по Telegram-ботам. Создавай детальные сметы на основе конкретных требований из диалога. Отвечай только валидным JSON.' },
@@ -123,8 +130,24 @@ ${conversationText}
 
             const response = await AdvancedGPTService.callOpenAIWithPrompt(messages);
             
+            logger.info('📊 Ответ GPT получен:', {
+                responseLength: response.length,
+                isJson: response.includes('{') && response.includes('}'),
+                preview: response.substring(0, 200) + '...'
+            });
+            
             // Парсим ответ
-            const estimate = this.parseGPTResponse(response);
+            const parsedEstimate = this.parseGPTResponse(response);
+            
+            // Валидируем и исправляем структуру
+            const estimate = this.validateAndFixEstimate(parsedEstimate);
+            
+            logger.info('✅ Смета сгенерирована:', {
+                componentsCount: estimate.components?.length || 0,
+                totalCost: estimate.totalCost,
+                totalHours: estimate.totalHours,
+                componentNames: estimate.components?.map(c => c.name) || []
+            });
             
             // Проверяем минимальную стоимость в зависимости от сложности
             const hasComplexFeatures = estimate.components?.some(c => 
@@ -158,15 +181,278 @@ ${conversationText}
                 type: 'gpt_generated',
                 status: 'pending',
                 metadata: {
-                    requirementsLength: requirements.length,
-                    conversationLength: conversation.length,
-                    newFeaturesCount: estimate.components.filter(c => c.isNew).length
+                    requirementsLength: requirements.length || 0,
+                    conversationLength: conversation.length
                 }
             };
             
         } catch (error) {
             logger.error('Ошибка генерации сметы через GPT:', error.message);
             throw error;
+        }
+    }
+
+    // Парсинг ответа GPT с улучшенной обработкой ошибок
+    parseGPTResponse(response) {
+        try {
+            logger.info('Начинаем парсинг ответа GPT', { 
+                responseLength: response.length,
+                firstChars: response.substring(0, 100)
+            });
+            
+            // Очищаем ответ от markdown и лишних символов
+            let cleanedResponse = response;
+            
+            // Удаляем markdown блоки кода
+            cleanedResponse = cleanedResponse.replace(/```json\s*/gi, '');
+            cleanedResponse = cleanedResponse.replace(/```\s*/gi, '');
+            
+            // Удаляем комментарии JSON (если есть)
+            cleanedResponse = cleanedResponse.replace(/\/\/.*$/gm, '');
+            cleanedResponse = cleanedResponse.replace(/\/\*[\s\S]*?\*\//g, '');
+            
+            // Удаляем trailing commas
+            cleanedResponse = cleanedResponse.replace(/,\s*}/g, '}');
+            cleanedResponse = cleanedResponse.replace(/,\s*]/g, ']');
+            
+            // Заменяем одинарные кавычки на двойные
+            cleanedResponse = cleanedResponse.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+            
+            // Удаляем лишние пробелы и переносы строк
+            cleanedResponse = cleanedResponse.trim();
+            
+            // Находим JSON объект в ответе
+            const firstBrace = cleanedResponse.indexOf('{');
+            const lastBrace = cleanedResponse.lastIndexOf('}');
+            
+            if (firstBrace === -1 || lastBrace === -1) {
+                throw new Error('JSON объект не найден в ответе');
+            }
+            
+            let jsonString = cleanedResponse.substring(firstBrace, lastBrace + 1);
+            
+            // Пробуем исправить распространенные ошибки
+            try {
+                return JSON.parse(jsonString);
+            } catch (firstError) {
+                logger.warn('Первая попытка парсинга не удалась, пробуем исправить', {
+                    error: firstError.message
+                });
+                
+                // Пробуем более агрессивные исправления
+                jsonString = this.tryFixCommonJSONErrors(jsonString);
+                
+                try {
+                    return JSON.parse(jsonString);
+                } catch (secondError) {
+                    logger.error('Вторая попытка парсинга не удалась', {
+                        error: secondError.message,
+                        jsonPreview: jsonString.substring(0, 200) + '...'
+                    });
+                    
+                    // Пытаемся создать базовую структуру из того, что есть
+                    return this.extractBasicStructure(jsonString);
+                }
+            }
+            
+        } catch (error) {
+            logger.error('Критическая ошибка парсинга JSON:', {
+                error: error.message,
+                responsePreview: response.substring(0, 200) + '...'
+            });
+            throw new Error('Не удалось распарсить ответ GPT: ' + error.message);
+        }
+    }
+    
+    // Дополнительный метод для исправления распространенных ошибок JSON
+    tryFixCommonJSONErrors(jsonString) {
+        try {
+            let fixed = jsonString;
+            
+            // Считаем кавычки и добавляем недостающие
+            const quoteCount = (fixed.match(/"/g) || []).length;
+            if (quoteCount % 2 !== 0) {
+                fixed = fixed + '"';
+            }
+            
+            // Исправляем незакрытые массивы
+            const openBrackets = (fixed.match(/\[/g) || []).length;
+            const closeBrackets = (fixed.match(/]/g) || []).length;
+            if (openBrackets > closeBrackets) {
+                fixed = fixed + ']'.repeat(openBrackets - closeBrackets);
+            }
+            
+            // Исправляем незакрытые объекты
+            const openBraces = (fixed.match(/{/g) || []).length;
+            const closeBraces = (fixed.match(/}/g) || []).length;
+            if (openBraces > closeBraces) {
+                fixed = fixed + '}'.repeat(openBraces - closeBraces);
+            }
+            
+            // Убираем двойные запятые
+            fixed = fixed.replace(/,,+/g, ',');
+            
+            // Убираем запятые перед закрывающими скобками (еще раз)
+            fixed = fixed.replace(/,\s*}/g, '}');
+            fixed = fixed.replace(/,\s*]/g, ']');
+            
+            return fixed;
+            
+        } catch (error) {
+            logger.error('Ошибка при попытке исправить JSON:', error);
+            return jsonString;
+        }
+    }
+    
+    // Извлечение базовой структуры из поврежденного JSON
+    extractBasicStructure(jsonString) {
+        try {
+            logger.warn('Используем извлечение базовой структуры из поврежденного JSON');
+            
+            const estimate = {
+                components: [],
+                totalHours: 0,
+                totalCost: 0,
+                timeline: '2-3 недели',
+                detectedFeatures: [],
+                recommendations: [],
+                businessType: 'Бизнес'
+            };
+            
+            // Пытаемся извлечь totalCost
+            const costMatch = jsonString.match(/"totalCost"\s*:\s*(\d+)/);
+            if (costMatch) {
+                estimate.totalCost = parseInt(costMatch[1]);
+                logger.info('Извлечен totalCost:', estimate.totalCost);
+            }
+            
+            // Пытаемся извлечь totalHours
+            const hoursMatch = jsonString.match(/"totalHours"\s*:\s*(\d+)/);
+            if (hoursMatch) {
+                estimate.totalHours = parseInt(hoursMatch[1]);
+                logger.info('Извлечен totalHours:', estimate.totalHours);
+            }
+            
+            // Пытаемся извлечь timeline
+            const timelineMatch = jsonString.match(/"timeline"\s*:\s*"([^"]+)"/);
+            if (timelineMatch) {
+                estimate.timeline = timelineMatch[1];
+                logger.info('Извлечен timeline:', estimate.timeline);
+            }
+            
+            // Пытаемся извлечь businessType
+            const businessMatch = jsonString.match(/"businessType"\s*:\s*"([^"]+)"/);
+            if (businessMatch) {
+                estimate.businessType = businessMatch[1];
+            }
+            
+            // Пытаемся извлечь компоненты
+            const componentsMatch = jsonString.match(/"components"\s*:\s*\[([\s\S]*?)]/);
+            if (componentsMatch) {
+                try {
+                    // Пробуем найти отдельные компоненты
+                    const componentRegex = /\{\s*"name"\s*:\s*"([^"]+)"[\s\S]*?"hours"\s*:\s*(\d+)[\s\S]*?"cost"\s*:\s*(\d+)/g;
+                    let match;
+                    
+                    while ((match = componentRegex.exec(componentsMatch[1])) !== null) {
+                        estimate.components.push({
+                            name: match[1],
+                            description: 'Реализация функционала',
+                            hours: parseInt(match[2]),
+                            cost: parseInt(match[3]),
+                            complexity: 'medium',
+                            category: 'custom'
+                        });
+                    }
+                    
+                    logger.info('Извлечено компонентов:', estimate.components.length);
+                } catch (e) {
+                    logger.warn('Не удалось извлечь компоненты:', e.message);
+                }
+            }
+            
+            // Если компонентов нет или мало данных, создаем базовые
+            if (estimate.components.length === 0 || (estimate.totalCost === 0 && estimate.totalHours === 0)) {
+                logger.warn('Недостаточно данных, используем значения по умолчанию');
+                
+                estimate.totalCost = 100000;
+                estimate.totalHours = 50;
+                estimate.timeline = '2-3 недели';
+                estimate.components = [
+                    {
+                        name: 'Базовая настройка бота',
+                        description: 'Создание бота, настройка команд, базовое меню',
+                        hours: 10,
+                        cost: 20000,
+                        complexity: 'low',
+                        category: 'basic'
+                    },
+                    {
+                        name: 'Основной функционал',
+                        description: 'Реализация основных функций согласно требованиям',
+                        hours: 30,
+                        cost: 60000,
+                        complexity: 'medium',
+                        category: 'custom'
+                    },
+                    {
+                        name: 'Тестирование и отладка',
+                        description: 'Полное тестирование функционала',
+                        hours: 10,
+                        cost: 20000,
+                        complexity: 'low',
+                        category: 'basic'
+                    }
+                ];
+                
+                estimate.detectedFeatures = ['Базовый функционал бота'];
+                estimate.recommendations = ['Начать с базовой версии', 'Добавлять функции поэтапно'];
+            } else {
+                // Если извлекли компоненты, пересчитываем итоги
+                if (estimate.components.length > 0 && estimate.totalCost === 0) {
+                    estimate.totalCost = estimate.components.reduce((sum, c) => sum + (c.cost || 0), 0);
+                    estimate.totalHours = estimate.components.reduce((sum, c) => sum + (c.hours || 0), 0);
+                }
+                
+                estimate.detectedFeatures = estimate.components.map(c => c.name);
+            }
+            
+            // Финальная проверка минимальных значений
+            if (estimate.totalCost < 50000) {
+                estimate.totalCost = 80000;
+            }
+            if (estimate.totalHours < 20) {
+                estimate.totalHours = 40;
+            }
+            
+            logger.info('Базовая структура сформирована:', {
+                totalCost: estimate.totalCost,
+                totalHours: estimate.totalHours,
+                componentsCount: estimate.components.length
+            });
+            
+            return estimate;
+            
+        } catch (error) {
+            logger.error('Критическая ошибка извлечения базовой структуры:', error);
+            
+            // Возвращаем минимальную гарантированную структуру
+            return {
+                components: [{
+                    name: 'Разработка Telegram-бота',
+                    description: 'Полный цикл разработки согласно требованиям',
+                    hours: 50,
+                    cost: 100000,
+                    complexity: 'medium',
+                    category: 'custom'
+                }],
+                totalHours: 50,
+                totalCost: 100000,
+                timeline: '2-3 недели',
+                detectedFeatures: ['Разработка бота'],
+                recommendations: ['Детали уточним с менеджером'],
+                businessType: 'Бизнес'
+            };
         }
     }
 
@@ -211,8 +497,7 @@ ${conversationText}
                 hours: parseInt(comp.hours) || 10,
                 cost: parseInt(comp.cost) || 20000,
                 complexity: comp.complexity || 'medium',
-                category: comp.category || 'custom',
-                isNew: comp.isNew || false
+                category: comp.category || 'custom'
             }));
             
             // Пересчитываем итоги если они не указаны
@@ -245,8 +530,7 @@ ${conversationText}
                         hours: fixed.totalHours || 40,
                         cost: fixed.totalCost || 80000,
                         complexity: 'medium',
-                        category: 'custom',
-                        isNew: false
+                        category: 'custom'
                     }
                 ];
             }
@@ -254,6 +538,43 @@ ${conversationText}
             // Обновляем detectedFeatures если пустой
             if (fixed.detectedFeatures.length === 0) {
                 fixed.detectedFeatures = fixed.components.map(c => c.name);
+            }
+            
+            // Проверяем полноту сметы
+            if (fixed.components.length < 5) {
+                logger.warn(`⚠️ Смета содержит только ${fixed.components.length} компонентов, это подозрительно мало`);
+                
+                // Добавляем предупреждение в рекомендации
+                if (!fixed.recommendations.includes('ВНИМАНИЕ: Смета может быть неполной')) {
+                    fixed.recommendations.unshift('ВНИМАНИЕ: Смета может быть неполной, проверьте все требования из диалога');
+                }
+            }
+            
+            // Проверяем наличие важных компонентов
+            const hasIntegration = fixed.components.some(c => 
+                c.name.toLowerCase().includes('интеграц') || 
+                c.category === 'integrations'
+            );
+            
+            const hasAuth = fixed.components.some(c => 
+                c.name.toLowerCase().includes('авториз') || 
+                c.name.toLowerCase().includes('аутентиф')
+            );
+            
+            const hasMultilang = fixed.components.some(c => 
+                c.name.toLowerCase().includes('язык') || 
+                c.name.toLowerCase().includes('мультиязыч')
+            );
+            
+            // Логируем предупреждения
+            if (!hasIntegration && fixed.businessType !== 'Простой бот') {
+                logger.warn('⚠️ В смете отсутствуют интеграции');
+            }
+            if (!hasAuth) {
+                logger.warn('⚠️ В смете отсутствует авторизация');
+            }
+            if (!hasMultilang) {
+                logger.warn('⚠️ В смете отсутствует мультиязычность');
             }
             
             logger.info('Смета провалидирована и исправлена', {
@@ -267,271 +588,6 @@ ${conversationText}
         } catch (error) {
             logger.error('Ошибка валидации сметы:', error);
             return this.generateBasicEstimate('');
-        }
-    }
-
-    // Парсинг ответа GPT с улучшенной обработкой ошибок
-    parseGPTResponse(response) {
-        try {
-            logger.info('Начинаем парсинг ответа GPT', { 
-                responseLength: response.length,
-                firstChars: response.substring(0, 100)
-            });
-            
-            // Очищаем ответ от markdown и лишних символов
-            let cleanedResponse = response;
-            
-            // Удаляем markdown блоки кода
-            cleanedResponse = cleanedResponse.replace(/```json\s*/gi, '');
-            cleanedResponse = cleanedResponse.replace(/```\s*/gi, '');
-            
-            // Удаляем комментарии JSON (если есть)
-            cleanedResponse = cleanedResponse.replace(/\/\/.*$/gm, '');
-            cleanedResponse = cleanedResponse.replace(/\/\*[\s\S]*?\*\//g, '');
-            
-            // Удаляем trailing commas (запятые перед закрывающими скобками)
-            cleanedResponse = cleanedResponse.replace(/,\s*}/g, '}');
-            cleanedResponse = cleanedResponse.replace(/,\s*]/g, ']');
-            
-            // Заменяем одинарные кавычки на двойные (осторожно)
-            // Но только если они используются для ключей/значений
-            cleanedResponse = cleanedResponse.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
-            
-            // Удаляем лишние пробелы и переносы строк
-            cleanedResponse = cleanedResponse.trim();
-            
-            // Находим JSON объект в ответе
-            const firstBrace = cleanedResponse.indexOf('{');
-            const lastBrace = cleanedResponse.lastIndexOf('}');
-            
-            if (firstBrace === -1 || lastBrace === -1) {
-                throw new Error('JSON объект не найден в ответе');
-            }
-            
-            let jsonString = cleanedResponse.substring(firstBrace, lastBrace + 1);
-            
-            // Пробуем исправить распространенные ошибки
-            try {
-                return JSON.parse(jsonString);
-            } catch (firstError) {
-                logger.warn('Первая попытка парсинга не удалась, пробуем исправить', {
-                    error: firstError.message,
-                    position: this.getErrorPosition(firstError.message)
-                });
-                
-                // Пробуем более агрессивные исправления
-                jsonString = this.tryFixCommonJSONErrors(jsonString);
-                
-                try {
-                    return JSON.parse(jsonString);
-                } catch (secondError) {
-                    // Если все еще не работает, пробуем извлечь хотя бы часть данных
-                    logger.error('Вторая попытка парсинга не удалась', {
-                        error: secondError.message,
-                        jsonPreview: jsonString.substring(0, 200) + '...'
-                    });
-                    
-                    // Пытаемся создать базовую структуру из того, что есть
-                    return this.extractBasicStructure(jsonString);
-                }
-            }
-            
-        } catch (error) {
-            logger.error('Критическая ошибка парсинга JSON:', {
-                error: error.message,
-                responsePreview: response.substring(0, 200) + '...'
-            });
-            throw new Error('Не удалось распарсить ответ GPT: ' + error.message);
-        }
-    }
-    
-    // Дополнительный метод для исправления распространенных ошибок JSON
-    tryFixCommonJSONErrors(jsonString) {
-        try {
-            // Исправляем незакрытые строки
-            let fixed = jsonString;
-            
-            // Считаем кавычки и добавляем недостающие
-            const quoteCount = (fixed.match(/"/g) || []).length;
-            if (quoteCount % 2 !== 0) {
-                // Нечетное количество кавычек - добавляем в конец
-                fixed = fixed + '"';
-            }
-            
-            // Исправляем незакрытые массивы
-            const openBrackets = (fixed.match(/\[/g) || []).length;
-            const closeBrackets = (fixed.match(/]/g) || []).length;
-            if (openBrackets > closeBrackets) {
-                fixed = fixed + ']'.repeat(openBrackets - closeBrackets);
-            }
-            
-            // Исправляем незакрытые объекты
-            const openBraces = (fixed.match(/{/g) || []).length;
-            const closeBraces = (fixed.match(/}/g) || []).length;
-            if (openBraces > closeBraces) {
-                fixed = fixed + '}'.repeat(openBraces - closeBraces);
-            }
-            
-            // Убираем двойные запятые
-            fixed = fixed.replace(/,,+/g, ',');
-            
-            // Убираем запятые перед закрывающими скобками (еще раз)
-            fixed = fixed.replace(/,\s*}/g, '}');
-            fixed = fixed.replace(/,\s*]/g, ']');
-            
-            return fixed;
-            
-        } catch (error) {
-            logger.error('Ошибка при попытке исправить JSON:', error);
-            return jsonString;
-        }
-    }
-    
-    // Извлечение позиции ошибки из сообщения
-    getErrorPosition(errorMessage) {
-        const match = errorMessage.match(/position (\d+)/i);
-        return match ? parseInt(match[1]) : null;
-    }
-    
-    // Извлечение базовой структуры из поврежденного JSON
-    extractBasicStructure(jsonString) {
-        try {
-            const estimate = {
-                components: [],
-                totalHours: 0,
-                totalCost: 0,
-                timeline: '2-3 недели',
-                detectedFeatures: [],
-                recommendations: []
-            };
-            
-            // Пытаемся извлечь totalCost
-            const costMatch = jsonString.match(/"totalCost"\s*:\s*(\d+)/);
-            if (costMatch) {
-                estimate.totalCost = parseInt(costMatch[1]);
-            }
-            
-            // Пытаемся извлечь totalHours
-            const hoursMatch = jsonString.match(/"totalHours"\s*:\s*(\d+)/);
-            if (hoursMatch) {
-                estimate.totalHours = parseInt(hoursMatch[1]);
-            }
-            
-            // Пытаемся извлечь timeline
-            const timelineMatch = jsonString.match(/"timeline"\s*:\s*"([^"]+)"/);
-            if (timelineMatch) {
-                estimate.timeline = timelineMatch[1];
-            }
-            
-            // Пытаемся извлечь компоненты
-            const componentsMatch = jsonString.match(/"components"\s*:\s*\[([\s\S]*?)]/);
-            if (componentsMatch) {
-                try {
-                    // Пробуем распарсить массив компонентов
-                    const componentsJson = '[' + componentsMatch[1] + ']';
-                    const components = JSON.parse(this.tryFixCommonJSONErrors(componentsJson));
-                    estimate.components = components;
-                } catch (e) {
-                    logger.warn('Не удалось извлечь компоненты:', e.message);
-                }
-            }
-            
-            // Если ничего не извлекли, возвращаем базовую смету
-            if (estimate.totalCost === 0 && estimate.totalHours === 0) {
-                logger.warn('Не удалось извлечь данные, используем значения по умолчанию');
-                estimate.totalCost = 100000;
-                estimate.totalHours = 50;
-                estimate.components = [
-                    {
-                        name: 'Разработка бота',
-                        description: 'Основной функционал согласно требованиям',
-                        hours: 40,
-                        cost: 80000,
-                        complexity: 'medium'
-                    },
-                    {
-                        name: 'Тестирование и отладка',
-                        description: 'Полное тестирование функционала',
-                        hours: 10,
-                        cost: 20000,
-                        complexity: 'low'
-                    }
-                ];
-            }
-            
-            return estimate;
-            
-        } catch (error) {
-            logger.error('Ошибка извлечения базовой структуры:', error);
-            
-            // Возвращаем минимальную рабочую структуру
-            return {
-                components: [{
-                    name: 'Разработка Telegram-бота',
-                    description: 'Полный цикл разработки',
-                    hours: 50,
-                    cost: 100000,
-                    complexity: 'medium'
-                }],
-                totalHours: 50,
-                totalCost: 100000,
-                timeline: '2-3 недели',
-                detectedFeatures: ['Базовый функционал'],
-                recommendations: ['Начать с MVP версии']
-            };
-        }
-    }
-
-    // Форматирование существующих функций для контекста GPT
-    formatFeaturesForContext(features) {
-        const examples = [];
-        const categories = Object.keys(features);
-        
-        // Берем по 2-3 примера из каждой категории
-        categories.forEach(category => {
-            const categoryFeatures = features[category].slice(0, 2);
-            categoryFeatures.forEach(feature => {
-                examples.push(`- ${feature.name} (${category}): ${feature.hours}ч, ${feature.cost}руб`);
-            });
-        });
-        
-        return examples.join('\n');
-    }
-
-    // Сохранение новых функций в каталог
-    async saveNewFeaturesToCatalog(components) {
-        try {
-            const newFeatures = components.filter(component => component.isNew);
-            
-            if (newFeatures.length === 0) {
-                logger.info('Нет новых функций для добавления в каталог');
-                return;
-            }
-            
-            logger.info(`🆕 Найдено ${newFeatures.length} новых функций для каталога`);
-            
-            for (const feature of newFeatures) {
-                // Подготавливаем функцию для каталога
-                const catalogFeature = {
-                    name: feature.name,
-                    description: feature.description,
-                    keywords: feature.keywords || [],
-                    hours: feature.hours,
-                    cost: feature.cost,
-                    complexity: feature.complexity,
-                    addedAt: new Date().toISOString(),
-                    usageCount: 1
-                };
-                
-                // Добавляем в соответствующую категорию
-                await FeaturesService.addFeature(feature.category || 'custom', catalogFeature);
-                
-                logger.info(`✅ Добавлена новая функция: ${feature.name} в категорию ${feature.category}`);
-            }
-            
-        } catch (error) {
-            logger.error('Ошибка сохранения новых функций:', error);
-            // Не прерываем процесс, продолжаем со сметой
         }
     }
 
@@ -579,66 +635,6 @@ ${conversationText}
                 category: 'communication'
             });
             totalHours += 10;
-        }
-        
-        if (lowerReq.includes('оператор') || lowerReq.includes('администратор')) {
-            components.push({
-                name: 'Интеграция с оператором',
-                description: 'Переключение на живого оператора, уведомления администратору',
-                hours: 12,
-                cost: 24000,
-                complexity: 'medium',
-                category: 'communication'
-            });
-            totalHours += 12;
-        }
-        
-        if (lowerReq.includes('расписан') || lowerReq.includes('смен')) {
-            components.push({
-                name: 'Управление расписанием персонала',
-                description: 'Просмотр и управление графиком смен сотрудников',
-                hours: 15,
-                cost: 30000,
-                complexity: 'medium',
-                category: 'admin'
-            });
-            totalHours += 15;
-        }
-        
-        if (lowerReq.includes('сообщен') && lowerReq.includes('персонал')) {
-            components.push({
-                name: 'Внутренний чат для персонала',
-                description: 'Обмен сообщениями между сотрудниками внутри бота',
-                hours: 12,
-                cost: 24000,
-                complexity: 'medium',
-                category: 'communication'
-            });
-            totalHours += 12;
-        }
-        
-        if (lowerReq.includes('заявк') || lowerReq.includes('закупк')) {
-            components.push({
-                name: 'Система заявок на закупки',
-                description: 'Форма подачи заявок, отслеживание статуса, уведомления',
-                hours: 15,
-                cost: 30000,
-                complexity: 'medium',
-                category: 'special'
-            });
-            totalHours += 15;
-        }
-        
-        if (lowerReq.includes('faq') || lowerReq.includes('вопрос')) {
-            components.push({
-                name: 'Раздел FAQ',
-                description: 'База частых вопросов и ответов с удобной навигацией',
-                hours: 8,
-                cost: 16000,
-                complexity: 'low',
-                category: 'communication'
-            });
-            totalHours += 8;
         }
         
         // Если компонентов мало, добавляем общий функционал
@@ -754,24 +750,20 @@ ${conversationText}
         return `${Math.ceil(daysNeeded / 30)} месяца`;
     }
 
-    // Анализ использования функций (для оптимизации каталога)
-    async analyzeFeatureUsage() {
-        try {
-            const usage = await FeaturesService.getFeatureUsageStats();
-            
-            logger.info('📊 Статистика использования функций:', usage);
-            
-            // Можно использовать для:
-            // - Определения популярных функций
-            // - Корректировки цен
-            // - Удаления неиспользуемых функций
-            
-            return usage;
-            
-        } catch (error) {
-            logger.error('Ошибка анализа использования:', error);
-            return null;
-        }
+    // Расчет сметы (публичный метод для совместимости)
+    async calculateEstimate(requirements, conversation = []) {
+        return this.calculateProjectEstimate(requirements, conversation);
+    }
+
+    // Быстрая оценка (для совместимости)
+    getQuickEstimate(category = 'medium') {
+        const prices = this.basePrices[category] || this.basePrices.medium;
+        return {
+            minCost: prices.min,
+            maxCost: prices.max,
+            averageCost: Math.round((prices.min + prices.max) / 2),
+            timeline: category === 'simple' ? '2-3 недели' : category === 'complex' ? '1.5-2 месяца' : '3-4 недели'
+        };
     }
 }
 
