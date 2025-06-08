@@ -6,6 +6,7 @@ const router = express.Router();
 const ChatController = require('../controllers/ChatController');
 const AnalyticsController = require('../controllers/AnalyticsController');
 const FormulationController = require('../controllers/FormulationController');
+const FeaturesService = require('../services/FeaturesService');
 const logger = require('../utils/logger');
 
 // Настройка multer для загрузки файлов
@@ -238,6 +239,172 @@ router.post('/force-estimate', async (req, res) => {
 
 // Проверка утвержденной сметы
 router.get('/check-approved-estimate/:sessionId', (req, res) => ChatController.checkApprovedEstimate(req, res));
+
+// === УПРАВЛЕНИЕ КАТАЛОГОМ ФУНКЦИЙ ===
+
+// Получить все функции
+router.get('/features', async (req, res) => {
+    try {
+        const features = await FeaturesService.getAllFeatures();
+        res.json({
+            success: true,
+            features: features,
+            totalCount: Object.values(features).flat().length
+        });
+    } catch (error) {
+        logger.error('Ошибка получения функций:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Не удалось получить каталог функций'
+        });
+    }
+});
+
+// Поиск функций
+router.post('/features/search', async (req, res) => {
+    try {
+        const { keywords } = req.body;
+        
+        if (!keywords) {
+            return res.status(400).json({
+                success: false,
+                error: 'Укажите ключевые слова для поиска'
+            });
+        }
+        
+        const results = await FeaturesService.searchFeatures(keywords);
+        
+        res.json({
+            success: true,
+            results: results,
+            count: results.length
+        });
+    } catch (error) {
+        logger.error('Ошибка поиска функций:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка поиска'
+        });
+    }
+});
+
+// Статистика использования
+router.get('/features/stats', async (req, res) => {
+    try {
+        const stats = await FeaturesService.getFeatureUsageStats();
+        res.json({
+            success: true,
+            stats: stats
+        });
+    } catch (error) {
+        logger.error('Ошибка получения статистики:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Не удалось получить статистику'
+        });
+    }
+});
+
+// Добавить новую функцию (для админки)
+router.post('/features/add', async (req, res) => {
+    try {
+        const { category, feature } = req.body;
+        
+        if (!category || !feature) {
+            return res.status(400).json({
+                success: false,
+                error: 'Укажите категорию и данные функции'
+            });
+        }
+        
+        const result = await FeaturesService.addFeature(category, feature);
+        
+        res.json({
+            success: result,
+            message: result ? 'Функция добавлена' : 'Не удалось добавить функцию'
+        });
+    } catch (error) {
+        logger.error('Ошибка добавления функции:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка добавления функции'
+        });
+    }
+});
+
+// Обновить функцию
+router.put('/features/update', async (req, res) => {
+    try {
+        const { category, featureName, updates } = req.body;
+        
+        if (!category || !featureName || !updates) {
+            return res.status(400).json({
+                success: false,
+                error: 'Укажите все необходимые параметры'
+            });
+        }
+        
+        const result = await FeaturesService.updateFeature(category, featureName, updates);
+        
+        res.json({
+            success: result,
+            message: result ? 'Функция обновлена' : 'Не удалось обновить функцию'
+        });
+    } catch (error) {
+        logger.error('Ошибка обновления функции:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка обновления функции'
+        });
+    }
+});
+
+// Очистка неиспользуемых функций
+router.post('/features/cleanup', async (req, res) => {
+    try {
+        const { daysUnused = 90 } = req.body;
+        
+        const removedCount = await FeaturesService.cleanupUnusedFeatures(daysUnused);
+        
+        res.json({
+            success: true,
+            removedCount: removedCount,
+            message: `Удалено неиспользуемых функций: ${removedCount}`
+        });
+    } catch (error) {
+        logger.error('Ошибка очистки каталога:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка очистки каталога'
+        });
+    }
+});
+
+// Экспорт каталога
+router.get('/features/export', async (req, res) => {
+    try {
+        const exportPath = await FeaturesService.exportCatalog();
+        
+        if (exportPath) {
+            res.json({
+                success: true,
+                message: 'Каталог экспортирован',
+                path: exportPath
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Не удалось экспортировать каталог'
+            });
+        }
+    } catch (error) {
+        logger.error('Ошибка экспорта каталога:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка экспорта'
+        });
+    }
+});
 
 // === СЕССИИ ===
 

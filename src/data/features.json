@@ -1,0 +1,23 @@
+{
+    "basic": [
+      {
+        "name": "Базовая настройка бота",
+        "description": "Создание бота, настройка команд, базовое меню",
+        "keywords": ["настройка", "создание", "бот", "меню", "команды"],
+        "hours": 10,
+        "cost": 20000,
+        "complexity": "low",
+        "addedAt": "2024-01-01T00:00:00.000Z",
+        "usageCount": 0
+      }
+    ],
+    "catalog": [],
+    "payments": [],
+    "booking": [],
+    "integrations": [],
+    "communication": [],
+    "analytics": [],
+    "admin": [],
+    "special": [],
+    "custom": []
+  }
