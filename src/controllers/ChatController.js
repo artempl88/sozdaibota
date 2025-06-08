@@ -237,16 +237,22 @@ class ChatController {
                         // Извлекаем требования из истории чата
                         const requirements = this.extractRequirements(chatHistory);
                         logger.info('📝 Требования извлечены', { 
-                            requirementsLength: requirements.length 
+                            requirementsLength: requirements.fullDialogue?.length || requirements.length 
                         });
                         
                         // Генерируем смету
-                        const estimate = await EstimateService.calculateProjectEstimate(requirements);
+                        // Если requirements это объект, передаем fullDialogue, иначе как есть
+                        const requirementsText = requirements.fullDialogue || requirements;
+                        const estimate = await EstimateService.calculateProjectEstimate(
+                            requirementsText,
+                            chatHistory // передаем полную историю для контекста
+                        );
                         
                         if (estimate) {
                             logger.info('💰 Смета сгенерирована', {
-                                totalCost: estimate.totalCost,
-                                totalHours: estimate.totalHours
+                                totalCost: estimate?.totalCost || 0,
+                                totalHours: estimate?.totalHours || 0,
+                                hasComponents: !!estimate?.components
                             });
                             
                             // Отправляем в Telegram
@@ -257,10 +263,14 @@ class ChatController {
                                 hasEstimate = true;
                                 
                                 // Заменяем ответ на сообщение об отправке сметы
+                                const estimateCost = estimate?.totalCost || 'уточняется';
+                                const estimateHours = estimate?.totalHours || 'уточняется';
+                                const estimateTimeline = estimate?.timeline || 'уточняется';
+                                
                                 finalResponse = `Отлично! Я подготовил детальную смету на основе нашего обсуждения:
 
-💰 **Стоимость:** ${estimate.totalCost.toLocaleString('ru-RU')} руб.
-⏱️ **Срок разработки:** ${estimate.timeline || estimate.totalHours + ' часов'}
+💰 **Стоимость:** ${typeof estimateCost === 'number' ? estimateCost.toLocaleString('ru-RU') : estimateCost} руб.
+⏱️ **Срок разработки:** ${estimateTimeline}
 
 Смета отправлена менеджеру на согласование. После утверждения (обычно это занимает 10-15 минут) вы получите:
 • Детальную смету в этот чат
@@ -269,22 +279,17 @@ class ChatController {
 
 Пока ждем ответа менеджера, скажите - хотите что-то добавить или изменить в функционале?`;
                                 
-                                // ИСПРАВЛЕНИЕ: НЕ добавляем в chatHistory с role: 'system'
-                                // Вместо этого сохраняем информацию в отдельных полях сессии
-                                
                                 try {
                                     // Обновляем статус сессии БЕЗ добавления в chatHistory
                                     session.estimateSent = true;
                                     session.estimateSentAt = new Date();
                                     session.estimateData = {
-                                        totalCost: estimate.totalCost,
-                                        totalHours: estimate.totalHours,
-                                        features: estimate.detectedFeatures,
-                                        estimateId: estimate._id || 'temp',
+                                        totalCost: estimate?.totalCost || 0,
+                                        totalHours: estimate?.totalHours || 0,
+                                        features: estimate?.detectedFeatures || [],
+                                        estimateId: estimate?._id || 'temp',
                                         sentToTelegram: true
                                     };
-                                    
-                                    // Важно: НЕ добавляем ничего с role: 'system' в chatHistory!
                                     
                                     await session.save();
                                     
@@ -295,7 +300,6 @@ class ChatController {
                                     
                                 } catch (saveError) {
                                     logger.error('⚠️ Ошибка сохранения статуса сессии:', saveError);
-                                    // Но смета уже отправлена, поэтому продолжаем
                                 }
                                 
                             } else {

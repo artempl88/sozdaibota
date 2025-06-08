@@ -10,7 +10,7 @@ class TelegramService {
         this.isInitialized = false;
         
         // Только инициализируем если есть токен
-        if (config.telegram.botToken && config.telegram.botToken !== 'your_bot_token_here') {
+        if (config.telegram.token && config.telegram.token !== 'your_bot_token_here') {
             this.initBot();
         } else {
             logger.warn('Telegram бот не настроен - токен отсутствует');
@@ -19,9 +19,35 @@ class TelegramService {
 
     initBot() {
         try {
-            this.bot = new TelegramBot(config.telegram.botToken, { polling: false });
+            // Включаем polling для получения обновлений
+            this.bot = new TelegramBot(config.telegram.token, { 
+                polling: {
+                    interval: 300,
+                    autoStart: true,
+                    params: {
+                        timeout: 10
+                    }
+                }
+            });
             this.isInitialized = true;
-            logger.info('✅ Telegram бот инициализирован');
+            logger.info('✅ Telegram бот инициализирован с polling');
+            
+            // Обработка ошибок polling
+            this.bot.on('polling_error', (error) => {
+                logger.error('Ошибка polling:', error);
+            });
+            
+            // Настраиваем обработчики
+            this.setupCallbackHandlers();
+            
+            // Логируем все входящие сообщения для отладки
+            this.bot.on('message', (msg) => {
+                logger.info('Получено сообщение в Telegram:', {
+                    from: msg.from.username || msg.from.id,
+                    text: msg.text?.substring(0, 50) || 'без текста'
+                });
+            });
+            
         } catch (error) {
             logger.error('❌ Ошибка инициализации Telegram бота:', error);
             this.isInitialized = false;
@@ -54,7 +80,16 @@ class TelegramService {
         }
 
         try {
-            // Получаем информацию о клиенте
+            // Логируем структуру estimate для отладки
+            logger.info('📊 Структура estimate:', {
+                hasEstimate: !!estimate,
+                estimateKeys: estimate ? Object.keys(estimate) : [],
+                totalCost: estimate?.totalCost,
+                totalHours: estimate?.totalHours,
+                componentsCount: estimate?.components?.length || 0
+            });
+            
+            // Получаем информацию о клиенте и историю диалога
             const session = await PreChatForm.findOne({ sessionId });
             const clientInfo = session ? {
                 name: session.name || 'Не указано',
@@ -90,19 +125,46 @@ class TelegramService {
                 message += '\n';
             }
             
+            // ДОБАВЛЯЕМ ИСТОРИЮ ДИАЛОГА
+            if (session && session.chatHistory && session.chatHistory.length > 0) {
+                message += '💬 ИСТОРИЯ ДИАЛОГА:\n';
+                message += '━━━━━━━━━━━━━━━━━━━━\n';
+                
+                // Берем последние 10 сообщений или все, если меньше
+                const messagesToShow = session.chatHistory.slice(-10);
+                
+                messagesToShow.forEach((msg, index) => {
+                    if (msg.role === 'user') {
+                        message += `👤 Клиент: ${msg.content}\n\n`;
+                    } else if (msg.role === 'assistant') {
+                        // Сокращаем слишком длинные сообщения ассистента
+                        const content = msg.content.length > 300 
+                            ? msg.content.substring(0, 300) + '...' 
+                            : msg.content;
+                        message += `🤖 Бот: ${content}\n\n`;
+                    }
+                });
+                
+                message += '━━━━━━━━━━━━━━━━━━━━\n\n';
+            }
+            
             // Информация о смете
             message += '💰 СМЕТА:\n';
-            message += `Общая стоимость: ${estimate.totalCost.toLocaleString('ru-RU')} руб.\n`;
-            message += `Время разработки: ${estimate.totalHours} часов\n`;
-            message += `Срок: ${estimate.timeline}\n\n`;
+            message += `Общая стоимость: ${estimate.totalCost ? estimate.totalCost.toLocaleString('ru-RU') : 'не указана'} руб.\n`;
+            message += `Время разработки: ${estimate.totalHours || 'не указано'} часов\n`;
+            message += `Срок: ${estimate.timeline || 'не указан'}\n\n`;
             
             // Компоненты
-            message += '📋 СОСТАВ РАБОТ:\n';
-            estimate.components.forEach((component, index) => {
-                message += `${index + 1}. ${component.name}\n`;
-                message += `   ${component.description}\n`;
-                message += `   Часы: ${component.hours} | Стоимость: ${component.cost.toLocaleString('ru-RU')} руб.\n\n`;
-            });
+            if (estimate.components && estimate.components.length > 0) {
+                message += '📋 СОСТАВ РАБОТ:\n';
+                estimate.components.forEach((component, index) => {
+                    message += `${index + 1}. ${component.name || 'Без названия'}\n`;
+                    if (component.description) {
+                        message += `   ${component.description}\n`;
+                    }
+                    message += `   Часы: ${component.hours || 0} | Стоимость: ${component.cost ? component.cost.toLocaleString('ru-RU') : 0} руб.\n\n`;
+                });
+            }
             
             // Обнаруженные функции
             if (estimate.detectedFeatures && estimate.detectedFeatures.length > 0) {
@@ -125,6 +187,33 @@ class TelegramService {
             // ID сессии
             message += `🔗 ID сессии: ${sessionId}\n`;
             message += `📅 Дата: ${new Date().toLocaleString('ru-RU')}`;
+
+            // Проверяем длину сообщения (Telegram лимит 4096 символов)
+            if (message.length > 4000) {
+                // Если слишком длинное, обрезаем историю диалога
+                logger.warn('Сообщение слишком длинное, сокращаем историю диалога');
+                
+                // Пересобираем сообщение с меньшим количеством истории
+                message = '🎯 НОВАЯ СМЕТА!\n\n';
+                
+                // Клиент инфо (сокращенно)
+                if (clientInfo) {
+                    message += `👤 ${clientInfo.name} | ${clientInfo.industry} | ${clientInfo.budget}\n\n`;
+                }
+                
+                message += '💬 ПОСЛЕДНИЕ СООБЩЕНИЯ:\n';
+                const lastMessages = session.chatHistory.slice(-4);
+                lastMessages.forEach(msg => {
+                    const content = msg.content.substring(0, 150);
+                    message += `${msg.role === 'user' ? '👤' : '🤖'}: ${content}\n`;
+                });
+                
+                message += '\n💰 СМЕТА:\n';
+                message += `Стоимость: ${estimate.totalCost.toLocaleString('ru-RU')} руб.\n`;
+                message += `Срок: ${estimate.timeline}\n\n`;
+                
+                message += '📋 Детали в следующем сообщении...';
+            }
 
             // Создаем клавиатуру с кнопками
             const keyboard = {
@@ -166,7 +255,9 @@ class TelegramService {
             
             // Пробуем отправить упрощенную версию без форматирования
             try {
-                const simpleMessage = `Новая смета!\nСессия: ${sessionId}\nСтоимость: ${estimate.totalCost} руб.\nВремя: ${estimate.totalHours} часов`;
+                const cost = estimate?.totalCost || 'не указана';
+                const hours = estimate?.totalHours || 'не указаны';
+                const simpleMessage = `Новая смета!\nСессия: ${sessionId}\nСтоимость: ${cost} руб.\nВремя: ${hours} часов`;
                 
                 await this.bot.sendMessage(this.chatId, simpleMessage);
                 logger.info('✅ Отправлена упрощенная версия сметы');
@@ -253,10 +344,18 @@ class TelegramService {
             const action = callbackQuery.data;
             const chatId = callbackQuery.message.chat.id;
             const messageId = callbackQuery.message.message_id;
+            
+            logger.info('📱 Получен callback от кнопки', {
+                action: action,
+                from: callbackQuery.from.username || callbackQuery.from.id,
+                messageId: messageId
+            });
 
             try {
                 // Разбираем action
                 const [command, sessionId, estimateId] = action.split('_');
+                
+                logger.info('Обработка команды', { command, sessionId, estimateId });
 
                 switch (command) {
                     case 'approve':
@@ -268,10 +367,15 @@ class TelegramService {
                     case 'reject':
                         await this.handleRejectEstimate(chatId, messageId, sessionId, estimateId);
                         break;
+                    default:
+                        logger.warn('Неизвестная команда callback:', command);
                 }
 
                 // Отвечаем на callback
-                await this.bot.answerCallbackQuery(callbackQuery.id);
+                await this.bot.answerCallbackQuery(callbackQuery.id, {
+                    text: '✅ Обработано',
+                    show_alert: false
+                });
                 
             } catch (error) {
                 logger.error('Ошибка обработки callback:', error);
@@ -281,27 +385,117 @@ class TelegramService {
                 });
             }
         });
+        
+        logger.info('✅ Обработчики callback настроены');
     }
 
     // Обработка утверждения сметы
     async handleApproveEstimate(chatId, messageId, sessionId, estimateId) {
         try {
-            // Обновляем сообщение
+            logger.info('🔔 Обработка утверждения сметы', { sessionId, estimateId });
+            
+            // Находим сессию
+            const session = await PreChatForm.findOne({ sessionId });
+            
+            if (!session) {
+                logger.error('❌ Сессия не найдена при утверждении сметы', { sessionId });
+                await this.bot.sendMessage(chatId, '❌ Ошибка: сессия не найдена');
+                return;
+            }
+            
+            logger.info('✅ Сессия найдена, обновляем статус', {
+                sessionId,
+                currentStatus: {
+                    estimateApproved: session.estimateApproved,
+                    estimateSent: session.estimateSent
+                }
+            });
+            
+            // Сначала обновляем сообщение в Telegram
             await this.bot.editMessageText(
-                '✅ СМЕТА УТВЕРЖДЕНА!\n\nКлиенту отправлено уведомление.',
+                '✅ СМЕТА УТВЕРЖДЕНА!\n\nОтправляю клиенту...',
                 {
                     chat_id: chatId,
                     message_id: messageId
                 }
             );
-
-            // Здесь должна быть логика сохранения утверждения в БД
-            // и отправки уведомления клиенту
-
-            logger.info('Смета утверждена', { sessionId, estimateId });
+            
+            // Формируем красивое сообщение для клиента
+            const totalCost = session.estimateData?.totalCost || 'уточняется у менеджера';
+            const totalHours = session.estimateData?.totalHours || 'уточняется у менеджера';
+            const timeline = session.estimateData?.timeline || '2-3 недели';
+            
+            const approvedEstimateMessage = `✅ **Ваша смета утверждена!**\n\n` +
+                `💰 **Стоимость проекта:** ${typeof totalCost === 'number' ? totalCost.toLocaleString('ru-RU') : totalCost} руб.\n` +
+                `⏱️ **Срок разработки:** ${typeof totalHours === 'number' ? totalHours + ' часов' : totalHours}\n` +
+                `📅 **Общий срок:** ${timeline}\n\n` +
+                `📋 **Следующие шаги:**\n` +
+                `1. Мы свяжемся с вами для обсуждения деталей\n` +
+                `2. Подпишем договор\n` +
+                `3. Начнем разработку вашего бота\n\n` +
+                `📞 Ожидайте звонка от менеджера в течение 30 минут.\n\n` +
+                `Если у вас есть вопросы, напишите их здесь - я передам менеджеру.`;
+            
+            // Сохраняем утвержденную смету в chatHistory
+            session.chatHistory.push({
+                role: 'assistant',
+                content: approvedEstimateMessage,
+                timestamp: new Date(),
+                metadata: {
+                    messageType: 'approved_estimate',
+                    approvedAt: new Date(),
+                    estimateId: estimateId
+                }
+            });
+            
+            // Обновляем статус сессии
+            session.estimateApproved = true;
+            session.estimateApprovedAt = new Date();
+            session.approvedEstimateId = estimateId;
+            
+            // ВАЖНО: Сбрасываем флаг доставки чтобы SSE мог отправить клиенту
+            session.estimateDeliveredToClient = false;
+            
+            const savedSession = await session.save();
+            
+            logger.info('✅ Смета утверждена и сохранена в БД', { 
+                sessionId,
+                estimateApproved: savedSession.estimateApproved,
+                approvedAt: savedSession.estimateApprovedAt
+            });
+            
+            // Обновляем сообщение в Telegram
+            await this.bot.editMessageText(
+                '✅ СМЕТА УТВЕРЖДЕНА!\n\n' +
+                `Клиенту отправлено уведомление.\n` +
+                `ID сессии: ${sessionId}\n\n` +
+                `✨ Смета появится в чате клиента автоматически.`,
+                {
+                    chat_id: chatId,
+                    message_id: messageId
+                }
+            );
+            
+            // Отправляем дополнительное подтверждение
+            await this.bot.sendMessage(
+                chatId,
+                `✅ Статус в БД обновлен:\n` +
+                `- estimateApproved: true\n` +
+                `- approvedAt: ${new Date().toLocaleString('ru-RU')}\n` +
+                `- Клиент получит уведомление через SSE/polling`
+            );
             
         } catch (error) {
-            logger.error('Ошибка утверждения сметы:', error);
+            logger.error('❌ Ошибка утверждения сметы:', error);
+            
+            try {
+                await this.bot.sendMessage(
+                    chatId, 
+                    `❌ Ошибка при утверждении сметы:\n${error.message}\n\nПопробуйте еще раз или обратитесь к разработчику.`
+                );
+            } catch (sendError) {
+                logger.error('Не удалось отправить сообщение об ошибке:', sendError);
+            }
         }
     }
 
@@ -333,6 +527,70 @@ class TelegramService {
         } catch (error) {
             logger.error('Ошибка отклонения сметы:', error);
         }
+    }
+
+    // Получение информации о боте
+    getBotInfo() {
+        return {
+            ready: this.isInitialized,
+            hasToken: !!config.telegram.token,
+            hasChatId: !!this.chatId,
+            status: this.isInitialized ? 'active' : 'inactive',
+            message: this.isInitialized 
+                ? 'Telegram бот готов к работе' 
+                : 'Telegram бот не инициализирован'
+        };
+    }
+
+    // Проверка готовности бота
+    isReady() {
+        return this.isInitialized && this.bot !== null;
+    }
+
+    // Остановка бота
+    async shutdown() {
+        try {
+            if (this.bot) {
+                // Останавливаем polling если включен
+                if (this.bot.isPolling && this.bot.isPolling()) {
+                    await this.bot.stopPolling();
+                }
+                
+                logger.info('Telegram бот остановлен');
+            }
+            
+            this.isInitialized = false;
+            this.bot = null;
+            
+        } catch (error) {
+            logger.error('Ошибка остановки Telegram бота:', error);
+        }
+    }
+
+    // Отправка простого уведомления (для тестов и общих уведомлений)
+    async sendNotification(text) {
+        if (!this.isInitialized || !this.bot) {
+            logger.warn('Telegram бот не инициализирован');
+            return false;
+        }
+
+        try {
+            await this.bot.sendMessage(this.chatId, text);
+            return true;
+        } catch (error) {
+            logger.error('Ошибка отправки уведомления:', error);
+            return false;
+        }
+    }
+
+    // Алиас для sendNewLeadNotification для совместимости
+    async sendLeadNotification(formData, sessionId) {
+        return this.sendNewLeadNotification(formData, sessionId);
+    }
+
+    // Алиас для sendMessageToManager
+    async sendEstimateToManager(estimate, sessionId) {
+        return this.sendEstimateToTelegram(estimate, sessionId);
     }
 }
 

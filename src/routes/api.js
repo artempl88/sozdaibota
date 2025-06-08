@@ -131,6 +131,11 @@ router.post('/send-approved-estimate', (req, res) => ChatController.sendApproved
 router.get('/estimate-updates/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
     
+    logger.info(`🔌 SSE подключение установлено`, {
+        sessionId: sessionId,
+        timestamp: new Date().toISOString()
+    });
+    
     // Настраиваем SSE
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -142,13 +147,34 @@ router.get('/estimate-updates/:sessionId', async (req, res) => {
     // Отправляем начальное сообщение
     res.write('data: {"type":"connected"}\n\n');
     
+    let checkCount = 0;
+    
     // Функция для проверки сметы
     const checkEstimate = async () => {
         try {
+            checkCount++;
+            logger.info(`🔍 SSE проверка #${checkCount} для сессии ${sessionId}`);
+            
             const { PreChatForm } = require('../models');
             const session = await PreChatForm.findOne({ sessionId });
             
-            if (session && session.estimateApproved && !session.estimateDeliveredToClient) {
+            if (!session) {
+                logger.warn('SSE: Сессия не найдена', { sessionId });
+                return;
+            }
+            
+            logger.info('SSE: Статус сессии', {
+                sessionId,
+                estimateApproved: session.estimateApproved,
+                estimateDeliveredToClient: session.estimateDeliveredToClient,
+                hasApprovedMessage: session.chatHistory.some(msg => 
+                    msg.metadata && msg.metadata.messageType === 'approved_estimate'
+                )
+            });
+            
+            if (session.estimateApproved && !session.estimateDeliveredToClient) {
+                logger.info('✅ SSE: Найдена утвержденная смета для отправки!', { sessionId });
+                
                 const estimateMessage = session.chatHistory
                     .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
                     .pop();
@@ -165,34 +191,55 @@ router.get('/estimate-updates/:sessionId', async (req, res) => {
                     });
                     
                     res.write(`data: ${data}\n\n`);
+                    logger.info('📤 SSE: Смета отправлена клиенту', { sessionId });
                     
                     // Помечаем как доставленную
                     session.estimateDeliveredToClient = true;
                     session.estimateDeliveredAt = new Date();
                     await session.save();
                     
+                    logger.info('✅ SSE: Статус обновлен - смета доставлена', { sessionId });
+                    
                     // Закрываем соединение после доставки
                     setTimeout(() => {
                         res.end();
+                        clearInterval(interval);
+                        logger.info('🔌 SSE соединение закрыто после доставки', { sessionId });
                     }, 1000);
+                } else {
+                    logger.warn('⚠️ SSE: Сообщение со сметой не найдено', { sessionId });
                 }
             }
         } catch (error) {
-            logger.error('SSE ошибка проверки сметы:', error);
+            logger.error('❌ SSE ошибка проверки сметы:', error);
         }
     };
     
-    // Проверяем каждые 5 секунд
-    const interval = setInterval(checkEstimate, 5000);
+    // Проверяем каждые 2 секунды (чаще для быстрой реакции)
+    const interval = setInterval(checkEstimate, 2000);
     
     // Проверяем сразу
     checkEstimate();
     
+    // Отправляем heartbeat каждые 30 секунд чтобы соединение не закрылось
+    const heartbeat = setInterval(() => {
+        res.write(':heartbeat\n\n');
+    }, 30000);
+    
     // Очистка при закрытии соединения
     req.on('close', () => {
         clearInterval(interval);
-        logger.info('SSE соединение закрыто', { sessionId });
+        clearInterval(heartbeat);
+        logger.info('🔌 SSE соединение закрыто клиентом', { sessionId });
     });
+    
+    // Максимальное время соединения - 5 минут
+    setTimeout(() => {
+        res.end();
+        clearInterval(interval);
+        clearInterval(heartbeat);
+        logger.info('⏱️ SSE соединение закрыто по таймауту', { sessionId });
+    }, 300000);
 });
 
 // Принудительная отправка сметы
