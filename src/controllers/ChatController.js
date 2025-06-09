@@ -111,7 +111,7 @@ class ChatController {
         }
     }
 
-    // Обработка сообщений в чате (АНКЕТНЫЙ ЧАТ) - ДОБАВЛЯЕМ ГЕНЕРАЦИЮ СМЕТЫ
+    // Обработка сообщений в чате (АНКЕТНЫЙ ЧАТ) - ИСПРАВЛЕНО
     async handleChatMessage(req, res) {
         try {
             const { sessionId, message } = req.body;
@@ -214,7 +214,7 @@ class ChatController {
                 await conversation.save();
             }
 
-            // ДОБАВЛЯЕМ ПРОВЕРКУ НА ГЕНЕРАЦИЮ СМЕТЫ
+            // ИСПРАВЛЕННАЯ ПРОВЕРКА НА ГЕНЕРАЦИЮ СМЕТЫ
             let finalResponse = gptResponse;
             let hasEstimate = false;
 
@@ -234,25 +234,20 @@ class ChatController {
                     logger.info('🚀 Функционал готов - генерируем смету', { sessionId });
                     
                     try {
-                        // Извлекаем требования из истории чата
-                        const requirements = this.extractRequirements(chatHistory);
-                        logger.info('📝 Требования извлечены', { 
-                            requirementsLength: requirements.fullDialogue?.length || requirements.length 
+                        // ИСПРАВЛЕНО: Передаем полную историю чата напрямую
+                        logger.info('📝 Передаем историю чата для генерации сметы', { 
+                            historyLength: chatHistory.length
                         });
                         
-                        // Генерируем смету
-                        // Если requirements это объект, передаем fullDialogue, иначе как есть
-                        const requirementsText = requirements.fullDialogue || requirements;
-                        const estimate = await EstimateService.calculateProjectEstimate(
-                            requirementsText,
-                            chatHistory // передаем полную историю для контекста
-                        );
+                        // Генерируем смету - передаем только историю чата
+                        const estimate = await EstimateService.calculateProjectEstimate(chatHistory);
                         
                         if (estimate) {
                             logger.info('💰 Смета сгенерирована', {
                                 totalCost: estimate?.totalCost || 0,
                                 totalHours: estimate?.totalHours || 0,
-                                hasComponents: !!estimate?.components
+                                hasComponents: !!estimate?.components,
+                                componentsCount: estimate?.components?.length || 0
                             });
                             
                             // Отправляем в Telegram
@@ -282,6 +277,7 @@ class ChatController {
                                         totalCost: estimate?.totalCost || 0,
                                         totalHours: estimate?.totalHours || 0,
                                         features: estimate?.detectedFeatures || [],
+                                        componentsCount: estimate?.components?.length || 0,
                                         estimateId: estimate?._id || 'temp',
                                         sentToTelegram: true
                                     };
@@ -290,7 +286,8 @@ class ChatController {
                                     
                                     logger.info('✅ Статус сессии обновлен', { 
                                         sessionId,
-                                        estimateSent: true 
+                                        estimateSent: true,
+                                        componentsCount: estimate?.components?.length || 0
                                     });
                                     
                                 } catch (saveError) {
@@ -353,12 +350,12 @@ class ChatController {
         }
     }
 
-    // Анализ намерения пользователя для генерации сметы
+    // ИСПРАВЛЕННЫЙ анализ намерения пользователя для генерации сметы
     async analyzeEstimateIntent(message, chatHistory) {
         try {
             logger.info('🔍 Анализируем намерение пользователя для сметы через GPT');
             
-            // Используем AdvancedGPTService для анализа через OpenAI
+            // ИСПРАВЛЕНО: Передаем chatHistory напрямую, это уже массив сообщений
             const shouldCalculate = await AdvancedGPTService.analyzeUserIntent(message, chatHistory);
             
             logger.info('📊 Результат анализа GPT:', { shouldCalculate });
@@ -374,13 +371,13 @@ class ChatController {
         }
     }
 
-    // Проверка готовности функционала для генерации сметы
-    async checkFunctionalityReadiness(conversation) {
+    // ИСПРАВЛЕННАЯ проверка готовности функционала для генерации сметы
+    async checkFunctionalityReadiness(chatHistory) {
         try {
             logger.info('🔍 Проверяем готовность функционала для сметы');
             
-            // Используем AdvancedGPTService для проверки через OpenAI
-            const isReady = await AdvancedGPTService.checkFunctionalityReadiness(conversation);
+            // ИСПРАВЛЕНО: Передаем chatHistory напрямую
+            const isReady = await AdvancedGPTService.checkFunctionalityReadiness(chatHistory);
             
             logger.info('📊 Результат проверки готовности:', { isReady });
             
@@ -622,8 +619,8 @@ class ChatController {
                 if (functionalityReady) {
                     logger.info('Все условия выполнены - запускаем расчет сметы');
                     
-                    const requirements = this.extractRequirements(conversation);
-                    estimate = await EstimateService.calculateProjectEstimate(requirements);
+                    // ИСПРАВЛЕНО: Передаем conversation напрямую
+                    estimate = await EstimateService.calculateProjectEstimate(conversation);
                     
                     // Отправляем в Telegram
                     await TelegramService.sendEstimateToTelegram(estimate, sessionId);
@@ -739,14 +736,15 @@ class ChatController {
         try {
             const { requirements, conversation = [], sessionId } = req.body;
             
-            if (!requirements) {
+            if (!requirements && conversation.length === 0) {
                 return res.status(400).json({
                     error: 'Требования обязательны для расчета'
                 });
             }
 
-            logger.info('Расчет сметы по запросу', { requirementsLength: requirements.length });
+            logger.info('Расчет сметы по запросу');
 
+            // ИСПРАВЛЕНО: Передаем требования и диалог
             const estimate = await EstimateService.calculateProjectEstimate(requirements, conversation);
             
             if (estimate && sessionId) {
@@ -900,21 +898,6 @@ class ChatController {
     }
 
     // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
-
-    // Извлечение требований из диалога
-    extractRequirements(conversation) {
-        const requirements = conversation
-            .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-            .map(msg => msg.content)
-            .join('\n');
-        
-        logger.info('📝 Извлечены требования', {
-            conversationLength: conversation.length,
-            requirementsLength: requirements.length
-        });
-        
-        return requirements;
-    }
 
     // Построение системного промпта в зависимости от стадии диалога
     buildSystemPrompt(conversationLength) {
