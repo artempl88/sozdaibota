@@ -112,9 +112,15 @@ class AdvancedGPTService {
         );
     }
 
-    // Анализ намерений пользователя с улучшенной логикой
+    // Анализ намерений пользователя с улучшенной логикой - ИСПРАВЛЕНО
     async analyzeUserIntent(message, chatHistory = []) {
         try {
+            // ДОБАВЛЕНА ПРОВЕРКА
+            if (!Array.isArray(chatHistory)) {
+                logger.error('chatHistory не является массивом:', typeof chatHistory);
+                chatHistory = [];
+            }
+            
             // Подготавливаем контекст последних сообщений
             const recentHistory = chatHistory.slice(-6);
             const contextMessages = recentHistory
@@ -179,10 +185,16 @@ ${contextMessages}
         }
     }
 
-    // Проверка готовности функционала для расчета сметы
+    // Проверка готовности функционала для расчета сметы - ИСПРАВЛЕНО
     async checkFunctionalityReadiness(conversation) {
         try {
             logger.info('🔍 Проверяем готовность функционала для сметы через GPT');
+            
+            // ДОБАВЛЕНА ПРОВЕРКА
+            if (!Array.isArray(conversation)) {
+                logger.error('conversation не является массивом:', typeof conversation);
+                return false;
+            }
             
             // Подготавливаем текст диалога
             const allMessages = conversation
@@ -245,10 +257,23 @@ ${allMessages}
         }
     }
 
-    // Извлечение всех согласованных функций из диалога
+    // Извлечение всех согласованных функций из диалога - ИСПРАВЛЕНО
     async extractAgreedFeatures(conversation) {
         try {
             logger.info('🔍 Извлекаем все согласованные функции через GPT');
+            
+            // ДОБАВЛЕНА ПРОВЕРКА
+            if (!Array.isArray(conversation)) {
+                logger.error('conversation не является массивом:', {
+                    type: typeof conversation,
+                    value: conversation
+                });
+                return {
+                    agreedFeatures: [],
+                    keyRequirements: {},
+                    projectType: 'simple_bot'
+                };
+            }
             
             const conversationText = conversation
                 .map(msg => `${msg.role === 'user' ? 'Клиент' : 'Консультант'}: ${msg.content}`)
@@ -321,85 +346,11 @@ ${conversationText}
             
         } catch (error) {
             logger.error('❌ Ошибка извлечения функций через GPT:', error);
-            return null;
-        }
-    }
-
-    // Извлечение всех согласованных функций из диалога
-    async extractAgreedFeatures(conversation) {
-        try {
-            logger.info('🔍 Извлекаем все согласованные функции через GPT');
-            
-            const conversationText = conversation
-                .map(msg => `${msg.role === 'user' ? 'Клиент' : 'Консультант'}: ${msg.content}`)
-                .join('\n\n');
-            
-            const extractionPrompt = `Ты - эксперт по анализу диалогов. Твоя задача - найти ВСЕ функции, которые клиент подтвердил или согласился реализовать.
-
-ДИАЛОГ:
-${conversationText}
-
-ВАЖНЫЕ ПРАВИЛА:
-1. Если клиент дал первоначальное ТЗ, а потом согласился на дополнения - учитывай ВСЕ
-2. "Да", "нужно", "важно", "обязательно" от клиента = подтверждение функции
-3. Не пропускай функции из середины и конца диалога
-4. Если консультант предложил функцию и клиент согласился - она ОБЯЗАТЕЛЬНА
-
-АНАЛИЗИРУЙ ПОШАГОВО:
-1. Какие функции были в первоначальном ТЗ?
-2. Какие функции предложил консультант?
-3. На что клиент ответил согласием?
-4. Какие уточнения и дополнения сделал клиент?
-
-Верни JSON со ВСЕМИ согласованными функциями:
-{
-  "agreedFeatures": [
-    {
-      "name": "Название функции",
-      "description": "Описание",
-      "source": "initial_requirements|consultant_proposal|client_addition",
-      "confirmed": true/false,
-      "complexity": "simple|medium|complex|very_complex"
-    }
-  ],
-  "keyRequirements": {
-    "userCount": число или null,
-    "hasAdminPanel": true/false,
-    "hasStatistics": true/false,
-    "hasDatabase": true/false,
-    "needsConfidentiality": true/false,
-    "integrations": ["список интеграций"] или []
-  },
-  "projectType": "simple_bot|corporate_system|marketplace|integration_heavy"
-}`;
-
-            const messages = [
-                { role: 'system', content: 'Ты эксперт по анализу требований. Извлекай ВСЕ согласованные функции из диалога. Отвечай только валидным JSON.' },
-                { role: 'user', content: extractionPrompt }
-            ];
-
-            const response = await this.callOpenAIWithPrompt(messages);
-            
-            try {
-                const features = JSON.parse(response);
-                logger.info('✅ Извлечены согласованные функции:', {
-                    count: features.agreedFeatures?.length || 0,
-                    hasAdmin: features.keyRequirements?.hasAdminPanel,
-                    projectType: features.projectType
-                });
-                return features;
-            } catch (parseError) {
-                logger.error('Ошибка парсинга функций:', parseError);
-                return {
-                    agreedFeatures: [],
-                    keyRequirements: {},
-                    projectType: 'simple_bot'
-                };
-            }
-            
-        } catch (error) {
-            logger.error('❌ Ошибка извлечения функций через GPT:', error);
-            return null;
+            return {
+                agreedFeatures: [],
+                keyRequirements: {},
+                projectType: 'simple_bot'
+            };
         }
     }
 
@@ -425,6 +376,11 @@ ${conversationText}
     // Создание резервного технического задания
     createFallbackSpec(conversation) {
         try {
+            // Проверка на массив
+            if (!Array.isArray(conversation)) {
+                conversation = [];
+            }
+            
             const userMessages = conversation
                 .filter(msg => msg.role === 'user')
                 .map(msg => msg.content)

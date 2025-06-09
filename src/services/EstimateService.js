@@ -12,11 +12,24 @@ class EstimateService {
         };
     }
 
-    // Основной метод расчета сметы - УПРОЩЕН
-    async calculateProjectEstimate(conversation = []) {
+    // Основной метод расчета сметы - ИСПРАВЛЕН
+    async calculateProjectEstimate(requirementsText, conversation = []) {
         try {
+            // Если передан только один параметр и это массив - используем старую логику
+            if (Array.isArray(requirementsText) && !conversation.length) {
+                conversation = requirementsText;
+                requirementsText = null;
+            }
+            
+            // Убеждаемся, что conversation это массив
+            if (!Array.isArray(conversation)) {
+                logger.warn('conversation не является массивом, преобразуем');
+                conversation = [];
+            }
+            
             logger.info('🚀 Начинаем интеллектуальный расчет сметы через GPT', {
-                conversationLength: conversation.length
+                conversationLength: conversation.length,
+                hasRequirementsText: !!requirementsText
             });
             
             // Генерируем смету через GPT
@@ -34,9 +47,9 @@ class EstimateService {
             logger.error('Критическая ошибка в calculateProjectEstimate:', error);
             
             // Fallback на базовую оценку
-            const conversationText = conversation
-                .map(msg => `${msg.role}: ${msg.content}`)
-                .join('\n');
+            const conversationText = requirementsText || (Array.isArray(conversation) 
+                ? conversation.map(msg => `${msg.role}: ${msg.content}`).join('\n')
+                : '');
                 
             return this.generateBasicEstimate(conversationText);
         }
@@ -45,6 +58,12 @@ class EstimateService {
     // Генерация сметы через GPT - ИСПРАВЛЕНО
     async generateEstimateWithGPT(conversation) {
         try {
+            // Проверяем что conversation это массив
+            if (!Array.isArray(conversation)) {
+                logger.error('conversation не является массивом:', typeof conversation);
+                conversation = [];
+            }
+            
             // ВАЖНО: Сначала извлекаем все согласованные функции
             logger.info('📋 Извлекаем согласованные функции из диалога...');
             const agreedFeatures = await AdvancedGPTService.extractAgreedFeatures(conversation);
@@ -759,7 +778,7 @@ ${agreedFeatures.agreedFeatures.map((f, i) =>
 
     // Расчет сметы (публичный метод для совместимости)
     async calculateEstimate(requirements, conversation = []) {
-        return this.calculateProjectEstimate(conversation);
+        return this.calculateProjectEstimate(requirements, conversation);
     }
 
     // Быстрая оценка (для совместимости)
