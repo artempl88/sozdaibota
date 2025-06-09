@@ -154,7 +154,7 @@ class ChatController {
                     
                     const messages = [
                         { role: 'system', content: systemPrompt },
-                        ...chatHistory.slice(-10),
+                        ...chatHistory,
                         { role: 'user', content: message }
                     ];
                     

@@ -122,7 +122,7 @@ class AdvancedGPTService {
             }
             
             // Подготавливаем контекст последних сообщений
-            const recentHistory = chatHistory.slice(-6);
+            const recentHistory = chatHistory;
             const contextMessages = recentHistory
                 .map(msg => `${msg.role === 'user' ? 'Клиент' : 'Консультант'}: ${msg.content}`)
                 .join('\n\n');
