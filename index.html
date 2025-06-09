@@ -1968,6 +1968,13 @@
                     if (confirm('Вы уверены, что хотите начать новый чат? Текущая история будет очищена.')) {
                         console.log('🔄 Начинаем новый чат...');
                         
+                        // Останавливаем отслеживание сметы
+                        stopEstimateTracking();
+                        
+                        // Очищаем localStorage
+                        localStorage.removeItem('sessionId');
+                        localStorage.removeItem('chatHistory');
+                        
                         this.sessionManager.sessionId = null;
                         this.formData = null;
                         this.conversationHistory = [];
@@ -2569,9 +2576,18 @@
                             
                             console.log(`✅ Загружено ${result.chatHistory.length} сообщений`);
                             
-                            // НОВОЕ: Если смета была отправлена, но еще не утверждена
+                            // ИСПРАВЛЕНИЕ: Проверяем время отправки сметы
                             if (result.estimateSent && !result.estimateApproved) {
-                                startEstimateTracking(this.sessionManager.sessionId);
+                                // Проверяем, когда была отправлена смета
+                                const estimateSentAt = new Date(result.estimateSentAt || Date.now());
+                                const hoursSinceEstimate = (Date.now() - estimateSentAt) / (1000 * 60 * 60);
+                                
+                                // Если прошло меньше 1 часа - показываем уведомление
+                                if (hoursSinceEstimate < 1) {
+                                    startEstimateTracking(this.sessionManager.sessionId);
+                                } else {
+                                    console.log('⏰ Смета устарела, не показываем уведомление об ожидании');
+                                }
                             }
                             
                             setTimeout(() => {
