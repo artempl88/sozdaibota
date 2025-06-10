@@ -229,7 +229,7 @@ class VoiceService {
                         'Content-Type': 'application/json'
                     },
                     responseType: 'arraybuffer',
-                    timeout: 30000
+                    timeout: 60000 // Увеличен до 60 секунд
                 }
             );
 

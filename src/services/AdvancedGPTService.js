@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const config = require('../config');
+const timeouts = require('../config/timeouts');
 const logger = require('../utils/logger');
 
 class AdvancedGPTService {
@@ -8,8 +9,8 @@ class AdvancedGPTService {
         this.apiKey = config.openai.apiKey;
         this.model = config.openai.model;
         this.endpoint = config.openai.endpoint;
-        this.maxRetries = 3;
-        this.retryDelay = 1000;
+        this.maxRetries = timeouts.retry.maxRetries;
+        this.retryDelay = timeouts.retry.baseDelay;
         
         // Настройка прокси
         this.proxyAgent = null;
@@ -53,11 +54,14 @@ class AdvancedGPTService {
     }
 
     // Основной вызов OpenAI с retry логикой
-    async callOpenAIWithPrompt(messages, retryCount = 0) {
+    async callOpenAIWithPrompt(messages, retryCount = 0, requestType = 'chat') {
         try {
             if (!this.apiKey) {
                 throw new Error('OpenAI API ключ не настроен');
             }
+
+            // Выбираем таймаут в зависимости от типа запроса
+            const timeout = timeouts.openai[requestType] || timeouts.openai.chat;
 
             const response = await axios.post(
                 this.endpoint,
@@ -72,7 +76,7 @@ class AdvancedGPTService {
                         'Authorization': `Bearer ${this.apiKey}`,
                         'Content-Type': 'application/json'
                     },
-                    timeout: 30000,
+                    timeout: timeout,
                     httpsAgent: this.proxyAgent
                 }
             );
@@ -83,18 +87,34 @@ class AdvancedGPTService {
                 throw new Error('Нет ответа от OpenAI');
             }
 
-            logger.info('GPT ответ получен', { messageLength: message.length, retryCount });
+            logger.info('✅ GPT ответ получен', { 
+                messageLength: message.length, 
+                retryCount, 
+                requestType,
+                timeout: `${timeout/1000}s`
+            });
             return message;
             
         } catch (error) {
-            logger.error(`Ошибка GPT (попытка ${retryCount + 1}):`, error.message);
+            // Улучшенное логирование ошибок
+            if (error.code === 'ECONNABORTED') {
+                logger.error(`⏰ Таймаут GPT запроса (попытка ${retryCount + 1}): превышено ${(timeouts.openai[requestType] || timeouts.openai.chat)/1000} секунд`);
+            } else {
+                logger.error(`❌ Ошибка GPT (попытка ${retryCount + 1}):`, {
+                    message: error.message,
+                    code: error.code,
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    requestType
+                });
+            }
             
             if (retryCount < this.maxRetries && this.isRetryableError(error)) {
-                const delay = this.retryDelay * Math.pow(2, retryCount);
-                logger.info(`Повторная попытка через ${delay}ms`);
+                const delay = Math.min(this.retryDelay * Math.pow(2, retryCount), timeouts.retry.maxDelay);
+                logger.info(`🔄 Повторная попытка через ${delay}ms`);
                 
                 await new Promise(resolve => setTimeout(resolve, delay));
-                return this.callOpenAIWithPrompt(messages, retryCount + 1);
+                return this.callOpenAIWithPrompt(messages, retryCount + 1, requestType);
             }
             
             throw error;
@@ -103,13 +123,17 @@ class AdvancedGPTService {
 
     // Проверка ошибок, при которых стоит повторить запрос
     isRetryableError(error) {
-        return (
-            error.code === 'ECONNRESET' || 
-            error.code === 'ETIMEDOUT' ||
-            error.response?.status === 503 ||
-            error.response?.status === 502 ||
-            error.response?.status === 429
-        );
+        // Проверяем коды ошибок
+        if (timeouts.retry.retryableCodes.includes(error.code)) {
+            return true;
+        }
+        
+        // Проверяем HTTP статусы
+        if (error.response?.status && timeouts.retry.retryableStatuses.includes(error.response.status)) {
+            return true;
+        }
+        
+        return false;
     }
 
     // ИСПРАВЛЕННЫЙ анализ намерений пользователя
@@ -157,7 +181,7 @@ class AdvancedGPTService {
                 { role: 'user', content: 'Проанализируй и дай ответ.' }
             ];
 
-            const response = await this.callOpenAIWithPrompt(messages);
+            const response = await this.callOpenAIWithPrompt(messages, 0, 'intent');
             
             // Очищаем ответ от лишних символов
             const cleanResponse = response.trim().toUpperCase();
@@ -227,7 +251,7 @@ class AdvancedGPTService {
                 { role: 'user', content: 'Проанализируй готовность.' }
             ];
 
-            const response = await this.callOpenAIWithPrompt(messages);
+            const response = await this.callOpenAIWithPrompt(messages, 0, 'functionality');
             
             // Очищаем ответ
             const cleanResponse = response.trim().toUpperCase();
