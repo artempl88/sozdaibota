@@ -182,13 +182,6 @@ class EstimateService {
             cleanedResponse = cleanedResponse.replace(/\/\/.*$/gm, '');
             cleanedResponse = cleanedResponse.replace(/\/\*[\s\S]*?\*\//g, '');
             
-            // Удаляем trailing commas
-            cleanedResponse = cleanedResponse.replace(/,\s*}/g, '}');
-            cleanedResponse = cleanedResponse.replace(/,\s*]/g, ']');
-            
-            // Удаляем лишние пробелы и переносы строк
-            cleanedResponse = cleanedResponse.trim();
-            
             // Находим JSON объект в ответе
             const firstBrace = cleanedResponse.indexOf('{');
             const lastBrace = cleanedResponse.lastIndexOf('}');
@@ -199,15 +192,141 @@ class EstimateService {
             
             let jsonString = cleanedResponse.substring(firstBrace, lastBrace + 1);
             
+            // Более тщательная очистка JSON
+            jsonString = this.cleanJsonString(jsonString);
+            
+            logger.info('Очищенный JSON для парсинга:', {
+                length: jsonString.length,
+                preview: jsonString.substring(0, 300) + '...'
+            });
+            
             // Пробуем распарсить
             return JSON.parse(jsonString);
             
         } catch (error) {
             logger.error('Критическая ошибка парсинга JSON:', {
                 error: error.message,
-                responsePreview: response.substring(0, 200) + '...'
+                responsePreview: response.substring(0, 500) + '...'
             });
+            
+            // Попытка восстановления JSON
+            try {
+                const recoveredJson = this.tryRecoverJson(response);
+                if (recoveredJson) {
+                    logger.info('✅ JSON восстановлен успешно');
+                    return recoveredJson;
+                }
+            } catch (recoveryError) {
+                logger.error('Не удалось восстановить JSON:', recoveryError.message);
+            }
+            
             throw new Error('Не удалось распарсить ответ GPT: ' + error.message);
+        }
+    }
+
+    // Более тщательная очистка JSON строки
+    cleanJsonString(jsonString) {
+        // Удаляем trailing commas перед } и ]
+        jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+        
+        // Удаляем лишние пробелы и переносы строк
+        jsonString = jsonString.replace(/\s+/g, ' ').trim();
+        
+        // Исправляем возможные проблемы с кавычками в строках
+        jsonString = this.fixQuotesInJson(jsonString);
+        
+        return jsonString;
+    }
+
+    // Исправление кавычек в JSON
+    fixQuotesInJson(jsonString) {
+        try {
+            // Заменяем одинарные кавычки на двойные (если они не внутри строк)
+            let result = '';
+            let inString = false;
+            let escapeNext = false;
+            
+            for (let i = 0; i < jsonString.length; i++) {
+                const char = jsonString[i];
+                const prevChar = i > 0 ? jsonString[i - 1] : '';
+                
+                if (escapeNext) {
+                    result += char;
+                    escapeNext = false;
+                    continue;
+                }
+                
+                if (char === '\\') {
+                    escapeNext = true;
+                    result += char;
+                    continue;
+                }
+                
+                if (char === '"' && prevChar !== '\\') {
+                    inString = !inString;
+                }
+                
+                // Заменяем одинарные кавычки на двойные, если не внутри строки
+                if (char === "'" && !inString) {
+                    result += '"';
+                } else {
+                    result += char;
+                }
+            }
+            
+            return result;
+        } catch (error) {
+            logger.warn('Ошибка при исправлении кавычек:', error.message);
+            return jsonString;
+        }
+    }
+
+    // Попытка восстановления поврежденного JSON
+    tryRecoverJson(response) {
+        try {
+            logger.info('🔧 Попытка восстановления поврежденного JSON');
+            
+            // Ищем все возможные JSON объекты в ответе
+            const jsonMatches = response.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+            
+            if (!jsonMatches || jsonMatches.length === 0) {
+                throw new Error('Не найдено JSON объектов для восстановления');
+            }
+            
+            // Пробуем каждый найденный JSON
+            for (const jsonMatch of jsonMatches) {
+                try {
+                    let cleanJson = this.cleanJsonString(jsonMatch);
+                    
+                    // Дополнительные попытки исправления
+                    const attempts = [
+                        cleanJson,
+                        cleanJson.replace(/,\s*$/, ''), // Удаляем trailing comma в конце
+                        cleanJson.replace(/}\s*,\s*$/, '}'), // Исправляем } ,
+                        cleanJson.replace(/]\s*,\s*$/, ']'), // Исправляем ] ,
+                    ];
+                    
+                    for (const attempt of attempts) {
+                        try {
+                            const parsed = JSON.parse(attempt);
+                            if (parsed.components && Array.isArray(parsed.components)) {
+                                logger.info('✅ JSON успешно восстановлен');
+                                return parsed;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                } catch (error) {
+                    continue;
+                }
+            }
+            
+            throw new Error('Все попытки восстановления провалились');
+            
+        } catch (error) {
+            logger.error('Ошибка восстановления JSON:', error.message);
+            return null;
         }
     }
 
