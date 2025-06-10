@@ -68,7 +68,7 @@ class AdvancedGPTService {
                 {
                     model: this.model,
                     messages: messages,
-                    max_tokens: 400,
+                    max_tokens: 2000,
                     temperature: 0.7
                 },
                 {

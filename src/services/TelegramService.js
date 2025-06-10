@@ -100,12 +100,15 @@ class TelegramService {
                 contacts: session.contacts || {}
             } : null;
 
-            // Формируем сообщение БЕЗ истории диалога
-            let message = '🎯 НОВАЯ СМЕТА!\n\n';
+            // КРАТКОЕ СООБЩЕНИЕ в Telegram
+            let message = '🎯 Новая смета!\n';
+            message += `Сессия: ${sessionId}\n`;
+            message += `Стоимость: ${estimate?.totalCost || 'не указана'} руб.\n`;
+            message += `Время: ${estimate?.totalHours || 'не указано'} часов\n\n`;
             
-            // Информация о клиенте
+            // Данные из быстрой анкеты
             if (clientInfo) {
-                message += '👤 КЛИЕНТ:\n';
+                message += '👤 Данные из быстрой анкеты:\n';
                 message += `Имя: ${clientInfo.name}\n`;
                 message += `Должность: ${clientInfo.position}\n`;
                 message += `Отрасль: ${clientInfo.industry}\n`;
@@ -121,49 +124,7 @@ class TelegramService {
                 if (clientInfo.contacts.telegram) {
                     message += `💬 Telegram: ${clientInfo.contacts.telegram}\n`;
                 }
-                
-                message += '\n';
             }
-            
-            // Информация о смете
-            message += '💰 СМЕТА:\n';
-            message += `Общая стоимость: ${estimate.totalCost ? estimate.totalCost.toLocaleString('ru-RU') : 'не указана'} руб.\n`;
-            message += `Время разработки: ${estimate.totalHours || 'не указано'} часов\n`;
-            message += `Срок: ${estimate.timeline || 'не указан'}\n\n`;
-            
-            // Компоненты
-            if (estimate.components && estimate.components.length > 0) {
-                message += '📋 СОСТАВ РАБОТ:\n';
-                estimate.components.forEach((component, index) => {
-                    message += `${index + 1}. ${component.name || 'Без названия'}\n`;
-                    if (component.description) {
-                        message += `   ${component.description}\n`;
-                    }
-                    message += `   Часы: ${component.hours || 0} | Стоимость: ${component.cost ? component.cost.toLocaleString('ru-RU') : 0} руб.\n\n`;
-                });
-            }
-            
-            // Обнаруженные функции
-            if (estimate.detectedFeatures && estimate.detectedFeatures.length > 0) {
-                message += '✅ ФУНКЦИОНАЛ:\n';
-                estimate.detectedFeatures.forEach(feature => {
-                    message += `• ${feature}\n`;
-                });
-                message += '\n';
-            }
-            
-            // Рекомендации
-            if (estimate.recommendations && estimate.recommendations.length > 0) {
-                message += '💡 РЕКОМЕНДАЦИИ:\n';
-                estimate.recommendations.forEach(rec => {
-                    message += `• ${rec}\n`;
-                });
-                message += '\n';
-            }
-            
-            // ID сессии
-            message += `🔗 ID сессии: ${sessionId}\n`;
-            message += `📅 Дата: ${new Date().toLocaleString('ru-RU')}`;
 
             // Создаем клавиатуру с кнопками
             const keyboard = {
@@ -187,107 +148,19 @@ class TelegramService {
                 ]
             };
 
-            // Отправляем сообщение БЕЗ parse_mode чтобы избежать ошибок парсинга
+            // Отправляем краткое сообщение
             const sentMessage = await this.bot.sendMessage(this.chatId, message, {
                 reply_markup: keyboard,
                 disable_web_page_preview: true
             });
 
-            logger.info('✅ Смета отправлена в Telegram', { 
+            logger.info('✅ Краткое сообщение о смете отправлено', { 
                 messageId: sentMessage.message_id,
                 sessionId 
             });
 
-            // ОТПРАВЛЯЕМ ИСТОРИЮ ДИАЛОГА КАК ФАЙЛ
-            if (session && session.chatHistory && session.chatHistory.length > 0) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const os = require('os');
-                    
-                    // Создаем временный файл
-                    const tempDir = os.tmpdir();
-                    const fileName = `dialog_${sessionId}_${Date.now()}.txt`;
-                    const filePath = path.join(tempDir, fileName);
-                    
-                    // Формируем содержимое файла
-                    let fileContent = `ИСТОРИЯ ДИАЛОГА\n`;
-                    fileContent += `================\n\n`;
-                    fileContent += `Клиент: ${clientInfo?.name || 'Не указано'}\n`;
-                    fileContent += `Отрасль: ${clientInfo?.industry || 'Не указано'}\n`;
-                    fileContent += `Дата: ${new Date().toLocaleString('ru-RU')}\n`;
-                    fileContent += `\n================\n\n`;
-                    
-                    // Добавляем сообщения
-                    session.chatHistory.forEach((msg, index) => {
-                        const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('ru-RU') : '';
-                        
-                        if (msg.role === 'user') {
-                            fileContent += `[${timestamp}] КЛИЕНТ:\n${msg.content}\n\n`;
-                        } else if (msg.role === 'assistant') {
-                            fileContent += `[${timestamp}] БОТ:\n${msg.content}\n\n`;
-                        }
-                        
-                        fileContent += '---\n\n';
-                    });
-                    
-                    // Добавляем информацию о смете
-                    fileContent += `\n================\n`;
-                    fileContent += `ИТОГОВАЯ СМЕТА\n`;
-                    fileContent += `================\n\n`;
-                    fileContent += `Стоимость: ${estimate.totalCost ? estimate.totalCost.toLocaleString('ru-RU') : 'не указана'} руб.\n`;
-                    fileContent += `Срок: ${estimate.timeline || 'не указан'}\n`;
-                    fileContent += `Часы: ${estimate.totalHours || 'не указано'}\n`;
-                    
-                    // Записываем файл
-                    await fs.promises.writeFile(filePath, fileContent, 'utf8');
-                    logger.info('📄 Файл с историей создан', { 
-                        filePath,
-                        fileSize: fileContent.length,
-                        messagesCount: session.chatHistory.length
-                    });
-                    
-                    // Отправляем файл с правильными параметрами
-                    const fileOptions = {
-                        filename: `История_диалога_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.txt`,
-                        contentType: 'text/plain'
-                    };
-                    
-                    await this.bot.sendDocument(
-                        this.chatId, 
-                        filePath,
-                        {
-                            caption: '📎 История диалога с клиентом'
-                        },
-                        fileOptions
-                    );
-                    
-                    logger.info('📤 Файл с историей отправлен');
-                    
-                    // Удаляем временный файл
-                    setTimeout(async () => {
-                        try {
-                            await fs.promises.unlink(filePath);
-                            logger.info('🗑️ Временный файл удален');
-                        } catch (err) {
-                            logger.warn('Не удалось удалить временный файл:', err.message);
-                        }
-                    }, 5000);
-                    
-                } catch (fileError) {
-                    logger.error('❌ Ошибка создания/отправки файла с историей:', fileError);
-                    
-                    // Если не удалось отправить файл, отправляем краткую историю текстом
-                    const shortHistory = session.chatHistory.slice(-3)
-                        .map(msg => `${msg.role === 'user' ? '👤' : '🤖'}: ${msg.content.substring(0, 100)}...`)
-                        .join('\n');
-                    
-                    await this.bot.sendMessage(
-                        this.chatId, 
-                        `📎 Не удалось прикрепить полную историю. Последние сообщения:\n\n${shortHistory}`
-                    );
-                }
-            }
+            // Создаем и отправляем HTML файлы
+            await this.createAndSendHtmlFiles(estimate, session, sessionId, clientInfo);
 
             return true;
 
@@ -309,6 +182,307 @@ class TelegramService {
                 return false;
             }
         }
+    }
+
+    // Создание и отправка HTML файлов
+    async createAndSendHtmlFiles(estimate, session, sessionId, clientInfo) {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        
+        try {
+            const tempDir = os.tmpdir();
+            const timestamp = Date.now();
+            
+            // 1. Создаем HTML файл с историей диалога
+            const dialogFileName = `dialog_${sessionId}_${timestamp}.html`;
+            const dialogFilePath = path.join(tempDir, dialogFileName);
+            const dialogHtml = this.generateDialogHtml(session, clientInfo, sessionId);
+            
+            await fs.promises.writeFile(dialogFilePath, dialogHtml, 'utf8');
+            logger.info('📄 HTML файл с историей диалога создан', { dialogFilePath });
+            
+            // 2. Создаем HTML файл с полной сметой
+            const estimateFileName = `estimate_${sessionId}_${timestamp}.html`;
+            const estimateFilePath = path.join(tempDir, estimateFileName);
+            const estimateHtml = this.generateEstimateHtml(estimate, clientInfo, sessionId);
+            
+            await fs.promises.writeFile(estimateFilePath, estimateHtml, 'utf8');
+            logger.info('📄 HTML файл со сметой создан', { estimateFilePath });
+            
+            // 3. Отправляем файл с историей диалога
+            if (session && session.chatHistory && session.chatHistory.length > 0) {
+                await this.bot.sendDocument(
+                    this.chatId, 
+                    dialogFilePath,
+                    {
+                        caption: '📎 История диалога с клиентом'
+                    },
+                    {
+                        filename: `История_диалога_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.html`,
+                        contentType: 'text/html'
+                    }
+                );
+                logger.info('📤 HTML файл с историей диалога отправлен');
+            }
+            
+            // 4. Отправляем файл со сметой
+            await this.bot.sendDocument(
+                this.chatId, 
+                estimateFilePath,
+                {
+                    caption: '💰 Полная смета проекта'
+                },
+                {
+                    filename: `Смета_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.html`,
+                    contentType: 'text/html'
+                }
+            );
+            logger.info('📤 HTML файл со сметой отправлен');
+            
+            // 5. Удаляем временные файлы через 10 секунд
+            setTimeout(async () => {
+                try {
+                    await fs.promises.unlink(dialogFilePath);
+                    await fs.promises.unlink(estimateFilePath);
+                    logger.info('🗑️ Временные HTML файлы удалены');
+                } catch (err) {
+                    logger.warn('Не удалось удалить временные файлы:', err.message);
+                }
+            }, 10000);
+            
+        } catch (error) {
+            logger.error('❌ Ошибка создания/отправки HTML файлов:', error);
+        }
+    }
+
+    // Генерация HTML для истории диалога
+    generateDialogHtml(session, clientInfo, sessionId) {
+        const currentDate = new Date().toLocaleString('ru-RU');
+        
+        let html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>История диалога - ${clientInfo?.name || sessionId}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .client-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin: 15px 0; }
+        .message { margin: 15px 0; padding: 15px; border-radius: 12px; max-width: 80%; }
+        .user-message { background: #e3f2fd; margin-left: auto; border-bottom-right-radius: 4px; }
+        .bot-message { background: #f1f8e9; margin-right: auto; border-bottom-left-radius: 4px; }
+        .message-header { font-size: 0.9em; color: #666; margin-bottom: 8px; font-weight: 500; }
+        .message-content { white-space: pre-wrap; }
+        .timestamp { font-size: 0.8em; color: #999; margin-top: 5px; }
+        h1 { color: #1976d2; margin: 0; }
+        h2 { color: #388e3c; margin: 20px 0 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 История диалога</h1>
+        <div class="client-info">
+            <div><strong>👤 Клиент:</strong> ${clientInfo?.name || 'Не указано'}</div>
+            <div><strong>💼 Должность:</strong> ${clientInfo?.position || 'Не указано'}</div>
+            <div><strong>🏢 Отрасль:</strong> ${clientInfo?.industry || 'Не указано'}</div>
+            <div><strong>💰 Бюджет:</strong> ${clientInfo?.budget || 'Не указано'}</div>
+            <div><strong>⏱ Сроки:</strong> ${clientInfo?.timeline || 'Не указано'}</div>
+            <div><strong>📅 Дата:</strong> ${currentDate}</div>
+        </div>`;
+        
+        if (clientInfo?.contacts) {
+            html += `<div class="client-info"><h3>📞 Контакты:</h3>`;
+            if (clientInfo.contacts.phone) html += `<div><strong>📱 Телефон:</strong> ${clientInfo.contacts.phone}</div>`;
+            if (clientInfo.contacts.email) html += `<div><strong>📧 Email:</strong> ${clientInfo.contacts.email}</div>`;
+            if (clientInfo.contacts.telegram) html += `<div><strong>💬 Telegram:</strong> ${clientInfo.contacts.telegram}</div>`;
+            html += `</div>`;
+        }
+        
+        html += `</div>`;
+        
+        html += `<h2>💬 Диалог</h2>`;
+        
+        if (session?.chatHistory && session.chatHistory.length > 0) {
+            session.chatHistory.forEach((msg, index) => {
+                const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleString('ru-RU') : '';
+                const isUser = msg.role === 'user';
+                
+                html += `
+                <div class="message ${isUser ? 'user-message' : 'bot-message'}">
+                    <div class="message-header">${isUser ? '👤 Клиент' : '🤖 Консультант'}</div>
+                    <div class="message-content">${this.escapeHtml(msg.content)}</div>
+                    ${timestamp ? `<div class="timestamp">${timestamp}</div>` : ''}
+                </div>`;
+            });
+        } else {
+            html += `<p>История диалога пуста</p>`;
+        }
+        
+        html += `
+    <div style="margin-top: 40px; padding: 15px; background: #f5f5f5; border-radius: 8px; font-size: 0.9em; color: #666;">
+        <strong>🔗 ID сессии:</strong> ${sessionId}<br>
+        <strong>📅 Экспорт:</strong> ${currentDate}
+    </div>
+</body>
+</html>`;
+        
+        return html;
+    }
+
+    // Генерация HTML для сметы
+    generateEstimateHtml(estimate, clientInfo, sessionId) {
+        const currentDate = new Date().toLocaleString('ru-RU');
+        
+        let html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Смета проекта - ${clientInfo?.name || sessionId}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; }
+        .summary { background: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff9800; }
+        .components { margin: 20px 0; }
+        .component { background: white; border: 1px solid #e0e0e0; border-radius: 8px; margin: 10px 0; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .component-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .component-name { font-weight: 600; color: #1976d2; font-size: 1.1em; }
+        .component-cost { background: #4caf50; color: white; padding: 5px 12px; border-radius: 20px; font-weight: 500; }
+        .component-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+        .component-description { color: #666; margin: 10px 0; }
+        .total-box { background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; margin: 30px 0; }
+        .features-list { columns: 2; column-gap: 30px; }
+        .features-list li { margin: 5px 0; break-inside: avoid; }
+        h1 { margin: 0; font-size: 2em; }
+        h2 { color: #1976d2; border-bottom: 2px solid #e3f2fd; padding-bottom: 10px; }
+        .client-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500; }
+        .badge-low { background: #e8f5e8; color: #2e7d32; }
+        .badge-medium { background: #fff3e0; color: #f57c00; }
+        .badge-high { background: #fce4ec; color: #c2185b; }
+        .badge-very-high { background: #f3e5f5; color: #7b1fa2; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💰 Смета проекта Telegram-бота</h1>
+        <div class="client-info">
+            <div><strong>👤 Клиент:</strong> ${clientInfo?.name || 'Не указано'}</div>
+            <div><strong>💼 Должность:</strong> ${clientInfo?.position || 'Не указано'}</div>
+            <div><strong>🏢 Отрасль:</strong> ${clientInfo?.industry || 'Не указано'}</div>
+            <div><strong>📅 Дата:</strong> ${currentDate}</div>
+        </div>
+    </div>`;
+        
+        // Общая информация
+        html += `
+    <div class="total-box">
+        <h2 style="margin: 0 0 15px 0; color: white; border: none;">📊 Итого по проекту</h2>
+        <div style="font-size: 2.5em; margin: 10px 0;">${estimate?.totalCost ? estimate.totalCost.toLocaleString('ru-RU') : 'не указана'} ₽</div>
+        <div style="font-size: 1.2em; opacity: 0.9;">
+            ⏱️ Время разработки: ${estimate?.totalHours || 'не указано'} часов<br>
+            📅 Срок реализации: ${estimate?.timeline || 'не указан'}
+        </div>
+    </div>`;
+        
+        // Компоненты сметы
+        if (estimate?.components && estimate.components.length > 0) {
+            html += `<h2>📋 Состав работ</h2><div class="components">`;
+            
+            estimate.components.forEach((component, index) => {
+                const complexityBadge = this.getComplexityBadge(component.complexity);
+                
+                html += `
+                <div class="component">
+                    <div class="component-header">
+                        <div class="component-name">${index + 1}. ${this.escapeHtml(component.name || 'Без названия')}</div>
+                        <div class="component-cost">${component.cost ? component.cost.toLocaleString('ru-RU') : 0} ₽</div>
+                    </div>
+                    <div class="component-description">${this.escapeHtml(component.description || 'Описание отсутствует')}</div>
+                    <div class="component-details">
+                        <div><strong>⏱️ Время:</strong> ${component.hours || 0} часов</div>
+                        <div><strong>📁 Категория:</strong> ${component.category || 'не указана'}</div>
+                        <div><strong>🎯 Сложность:</strong> ${complexityBadge}</div>
+                    </div>
+                </div>`;
+            });
+            
+            html += `</div>`;
+        }
+        
+        // Обнаруженные функции
+        if (estimate?.detectedFeatures && estimate.detectedFeatures.length > 0) {
+            html += `
+            <h2>✅ Выявленный функционал</h2>
+            <ul class="features-list">`;
+            
+            estimate.detectedFeatures.forEach(feature => {
+                html += `<li>${this.escapeHtml(feature)}</li>`;
+            });
+            
+            html += `</ul>`;
+        }
+        
+        // Рекомендации
+        if (estimate?.recommendations && estimate.recommendations.length > 0) {
+            html += `
+            <h2>💡 Рекомендации</h2>
+            <ul>`;
+            
+            estimate.recommendations.forEach(rec => {
+                html += `<li>${this.escapeHtml(rec)}</li>`;
+            });
+            
+            html += `</ul>`;
+        }
+        
+        // Информация о бизнесе
+        if (estimate?.businessType) {
+            html += `
+            <div class="summary">
+                <h3>🏢 Тип бизнеса</h3>
+                <p>${this.escapeHtml(estimate.businessType)}</p>
+            </div>`;
+        }
+        
+        html += `
+    <div style="margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 8px; font-size: 0.9em; color: #666;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div><strong>🔗 ID сессии:</strong> ${sessionId}</div>
+            <div><strong>📅 Создано:</strong> ${currentDate}</div>
+            <div><strong>💼 Компания:</strong> СоздайБота</div>
+            <div><strong>📧 Email:</strong> info@sozdaibota.ru</div>
+        </div>
+    </div>
+</body>
+</html>`;
+        
+        return html;
+    }
+
+    // Получить бейдж сложности
+    getComplexityBadge(complexity) {
+        const badges = {
+            'low': '<span class="badge badge-low">Низкая</span>',
+            'medium': '<span class="badge badge-medium">Средняя</span>',
+            'high': '<span class="badge badge-high">Высокая</span>',
+            'very_high': '<span class="badge badge-very-high">Очень высокая</span>'
+        };
+        
+        return badges[complexity] || '<span class="badge badge-medium">Не указана</span>';
+    }
+
+    // Экранирование HTML
+    escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     // Отправка уведомления об утверждении клиенту
