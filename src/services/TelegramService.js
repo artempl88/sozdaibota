@@ -159,8 +159,8 @@ class TelegramService {
                 sessionId 
             });
 
-            // Создаем и отправляем HTML файлы
-            await this.createAndSendHtmlFiles(estimate, session, sessionId, clientInfo);
+            // Создаем и отправляем PDF файлы
+            await this.createAndSendPDFFiles(estimate, session, sessionId, clientInfo);
 
             return true;
 
@@ -184,75 +184,44 @@ class TelegramService {
         }
     }
 
-    // Создание и отправка HTML файлов
-    async createAndSendHtmlFiles(estimate, session, sessionId, clientInfo) {
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
+    // Создание и отправка PDF файлов
+    async createAndSendPDFFiles(estimate, session, sessionId, clientInfo) {
+        const PDFService = require('./PDFService');
         
         try {
-            const tempDir = os.tmpdir();
-            const timestamp = Date.now();
+            logger.info('📄 Начинаем генерацию PDF файлов для менеджера');
             
-            // 1. Создаем HTML файл с историей диалога
-            const dialogFileName = `dialog_${sessionId}_${timestamp}.html`;
-            const dialogFilePath = path.join(tempDir, dialogFileName);
-            const dialogHtml = this.generateDialogHtml(session, clientInfo, sessionId);
+            // Генерируем PDF для менеджера (с историей диалога)
+            const managerPdfPath = await PDFService.generateManagerPDF(estimate, session, clientInfo, sessionId);
             
-            await fs.promises.writeFile(dialogFilePath, dialogHtml, 'utf8');
-            logger.info('📄 HTML файл с историей диалога создан', { dialogFilePath });
+            logger.info('📤 Отправляем PDF менеджеру');
             
-            // 2. Создаем HTML файл с полной сметой
-            const estimateFileName = `estimate_${sessionId}_${timestamp}.html`;
-            const estimateFilePath = path.join(tempDir, estimateFileName);
-            const estimateHtml = this.generateEstimateHtml(estimate, clientInfo, sessionId);
-            
-            await fs.promises.writeFile(estimateFilePath, estimateHtml, 'utf8');
-            logger.info('📄 HTML файл со сметой создан', { estimateFilePath });
-            
-            // 3. Отправляем файл с историей диалога
-            if (session && session.chatHistory && session.chatHistory.length > 0) {
-                await this.bot.sendDocument(
-                    this.chatId, 
-                    dialogFilePath,
-                    {
-                        caption: '📎 История диалога с клиентом'
-                    },
-                    {
-                        filename: `История_диалога_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.html`,
-                        contentType: 'text/html'
-                    }
-                );
-                logger.info('📤 HTML файл с историей диалога отправлен');
-            }
-            
-            // 4. Отправляем файл со сметой
+            // Отправляем PDF файл менеджеру
             await this.bot.sendDocument(
                 this.chatId, 
-                estimateFilePath,
+                managerPdfPath,
                 {
-                    caption: '💰 Полная смета проекта'
+                    caption: '📊 Смета и история переговоров\n\n' +
+                            `👤 Клиент: ${clientInfo?.name || 'Не указано'}\n` +
+                            `💰 Сумма: ${estimate?.totalCost?.toLocaleString('ru-RU') || 0} ₽\n` +
+                            `⏱ Срок: ${estimate?.timeline || 'не указан'}`
                 },
                 {
-                    filename: `Смета_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.html`,
-                    contentType: 'text/html'
+                    filename: `Смета_${clientInfo?.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}_${new Date().toISOString().split('T')[0]}.pdf`,
+                    contentType: 'application/pdf'
                 }
             );
-            logger.info('📤 HTML файл со сметой отправлен');
             
-            // 5. Удаляем временные файлы через 10 секунд
+            logger.info('✅ PDF файл успешно отправлен менеджеру');
+            
+            // Удаляем временный файл через 30 секунд
             setTimeout(async () => {
-                try {
-                    await fs.promises.unlink(dialogFilePath);
-                    await fs.promises.unlink(estimateFilePath);
-                    logger.info('🗑️ Временные HTML файлы удалены');
-                } catch (err) {
-                    logger.warn('Не удалось удалить временные файлы:', err.message);
-                }
-            }, 10000);
+                await PDFService.cleanupTempFiles([managerPdfPath]);
+            }, 30000);
             
         } catch (error) {
-            logger.error('❌ Ошибка создания/отправки HTML файлов:', error);
+            logger.error('❌ Ошибка создания/отправки PDF файлов:', error);
+            throw error;
         }
     }
 
@@ -644,87 +613,148 @@ class TelegramService {
             
             // Сначала обновляем сообщение в Telegram
             await this.bot.editMessageText(
-                '✅ СМЕТА УТВЕРЖДЕНА!\n\nОтправляю клиенту...',
+                '✅ СМЕТА УТВЕРЖДЕНА!\n\nГенерирую PDF для клиента...',
                 {
                     chat_id: chatId,
                     message_id: messageId
                 }
             );
             
-            // Формируем красивое сообщение для клиента с полной сметой
-            const totalCost = session.estimateData?.totalCost || 'уточняется у менеджера';
-            const totalHours = session.estimateData?.totalHours || 'уточняется у менеджера';
-            const timeline = session.estimateData?.timeline || '2-3 недели';
+            // Генерируем PDF для клиента
+            const PDFService = require('./PDFService');
             
-            let approvedEstimateMessage = `✅ **Ваша смета утверждена!**\n\n`;
-            approvedEstimateMessage += `💰 **Стоимость проекта:** ${typeof totalCost === 'number' ? totalCost.toLocaleString('ru-RU') : totalCost} руб.\n`;
-            approvedEstimateMessage += `⏱️ **Общее время разработки:** ${typeof totalHours === 'number' ? totalHours + ' часов' : totalHours}\n`;
-            approvedEstimateMessage += `📅 **Срок реализации:** ${timeline}\n\n`;
-            
-            // Добавляем состав работ если есть
-            if (session.estimateData?.features && session.estimateData.features.length > 0) {
-                approvedEstimateMessage += `📋 **В стоимость входит:**\n`;
-                session.estimateData.features.forEach(feature => {
-                    approvedEstimateMessage += `• ${feature}\n`;
+            try {
+                // Подготавливаем данные для PDF
+                const clientInfo = {
+                    name: session.name,
+                    position: session.position,
+                    industry: session.industry,
+                    budget: session.budget,
+                    timeline: session.timeline,
+                    contacts: session.contacts
+                };
+                
+                const estimate = {
+                    totalCost: session.estimateData?.totalCost || 0,
+                    totalHours: session.estimateData?.totalHours || 0,
+                    timeline: session.estimateData?.timeline || session.timeline || '2-3 недели',
+                    components: session.estimateData?.components || [],
+                    detectedFeatures: session.estimateData?.features || [],
+                    businessType: session.estimateData?.businessType || session.industry,
+                    recommendations: session.estimateData?.recommendations || []
+                };
+                
+                // Генерируем PDF для клиента (без истории диалога)
+                const clientPdfPath = await PDFService.generateClientPDF(estimate, clientInfo, sessionId);
+                
+                logger.info('📄 PDF для клиента сгенерирован', { clientPdfPath });
+                
+                // Формируем красивое сообщение для клиента
+                const totalCost = session.estimateData?.totalCost || 'уточняется у менеджера';
+                const totalHours = session.estimateData?.totalHours || 'уточняется у менеджера';
+                const timeline = session.estimateData?.timeline || '2-3 недели';
+                
+                let approvedEstimateMessage = `✅ **Ваше коммерческое предложение готово!**\n\n`;
+                approvedEstimateMessage += `💰 **Стоимость проекта:** ${typeof totalCost === 'number' ? totalCost.toLocaleString('ru-RU') : totalCost} ₽\n`;
+                approvedEstimateMessage += `⏱️ **Время разработки:** ${typeof totalHours === 'number' ? totalHours + ' часов' : totalHours}\n`;
+                approvedEstimateMessage += `📅 **Срок реализации:** ${timeline}\n\n`;
+                
+                // Добавляем состав работ если есть
+                if (session.estimateData?.features && session.estimateData.features.length > 0) {
+                    approvedEstimateMessage += `📋 **В стоимость входит:**\n`;
+                    session.estimateData.features.forEach(feature => {
+                        approvedEstimateMessage += `• ${feature}\n`;
+                    });
+                    approvedEstimateMessage += '\n';
+                }
+                
+                approvedEstimateMessage += `📄 **PDF документ с полным коммерческим предложением прикреплен к этому сообщению.**\n\n`;
+                approvedEstimateMessage += `**Следующие шаги:**\n`;
+                approvedEstimateMessage += `1. Скачайте и изучите коммерческое предложение\n`;
+                approvedEstimateMessage += `2. Мы свяжемся с вами для обсуждения деталей\n`;
+                approvedEstimateMessage += `3. После согласования подпишем договор\n`;
+                approvedEstimateMessage += `4. Начнем разработку вашего бота\n\n`;
+                approvedEstimateMessage += `📞 Ожидайте звонка от менеджера в течение 30 минут.\n\n`;
+                approvedEstimateMessage += `Если у вас есть вопросы - напишите здесь или свяжитесь с нами удобным способом.`;
+                
+                // Сохраняем PDF путь и сообщение в chatHistory
+                session.chatHistory.push({
+                    role: 'assistant',
+                    content: approvedEstimateMessage,
+                    timestamp: new Date(),
+                    metadata: {
+                        messageType: 'approved_estimate',
+                        approvedAt: new Date(),
+                        estimateId: estimateId,
+                        pdfPath: clientPdfPath
+                    }
                 });
-                approvedEstimateMessage += '\n';
+                
+                // Обновляем статус сессии
+                session.estimateApproved = true;
+                session.estimateApprovedAt = new Date();
+                session.approvedEstimateId = estimateId;
+                
+                // ВАЖНО: Сбрасываем флаг доставки чтобы SSE мог отправить клиенту
+                session.estimateDeliveredToClient = false;
+                
+                const savedSession = await session.save();
+                
+                logger.info('✅ Смета утверждена и сохранена в БД', { 
+                    sessionId,
+                    estimateApproved: savedSession.estimateApproved,
+                    approvedAt: savedSession.estimateApprovedAt
+                });
+                
+                // Обновляем сообщение в Telegram
+                await this.bot.editMessageText(
+                    '✅ СМЕТА УТВЕРЖДЕНА!\n\n' +
+                    `PDF для клиента сгенерирован и будет отправлен.\n` +
+                    `ID сессии: ${sessionId}\n\n` +
+                    `✨ Клиент получит PDF с коммерческим предложением в чате.`,
+                    {
+                        chat_id: chatId,
+                        message_id: messageId
+                    }
+                );
+                
+                // Отправляем дополнительное подтверждение с PDF
+                await this.bot.sendDocument(
+                    chatId,
+                    clientPdfPath,
+                    {
+                        caption: `✅ PDF для клиента готов\n` +
+                                `📧 Клиент: ${clientInfo.name}\n` +
+                                `💰 Сумма: ${totalCost} ₽\n` +
+                                `📱 Контакты: ${this.formatContacts(clientInfo.contacts)}`
+                    },
+                    {
+                        filename: `КП_для_клиента_${clientInfo.name?.replace(/[^а-яА-Яa-zA-Z0-9]/g, '_') || sessionId}.pdf`,
+                        contentType: 'application/pdf'
+                    }
+                );
+                
+                // Удаляем временный файл через 60 секунд
+                setTimeout(async () => {
+                    await PDFService.cleanupTempFiles([clientPdfPath]);
+                }, 60000);
+                
+            } catch (pdfError) {
+                logger.error('❌ Ошибка генерации PDF для клиента:', pdfError);
+                
+                // Все равно сохраняем утверждение, но без PDF
+                session.estimateApproved = true;
+                session.estimateApprovedAt = new Date();
+                session.approvedEstimateId = estimateId;
+                session.estimateDeliveredToClient = false;
+                await session.save();
+                
+                await this.bot.sendMessage(
+                    chatId,
+                    '⚠️ Смета утверждена, но произошла ошибка при генерации PDF.\n' +
+                    'Клиент получит текстовую версию коммерческого предложения.'
+                );
             }
-            
-            approvedEstimateMessage += `**Следующие шаги:**\n`;
-            approvedEstimateMessage += `1. Мы свяжемся с вами для обсуждения деталей\n`;
-            approvedEstimateMessage += `2. Подпишем договор и внесете предоплату\n`;
-            approvedEstimateMessage += `3. Начнем разработку вашего бота\n\n`;
-            approvedEstimateMessage += `📞 Ожидайте звонка от менеджера в течение 30 минут.\n\n`;
-            approvedEstimateMessage += `Если у вас есть вопросы по смете или хотите что-то изменить - напишите здесь.`;
-            
-            // Сохраняем утвержденную смету в chatHistory
-            session.chatHistory.push({
-                role: 'assistant',
-                content: approvedEstimateMessage,
-                timestamp: new Date(),
-                metadata: {
-                    messageType: 'approved_estimate',
-                    approvedAt: new Date(),
-                    estimateId: estimateId
-                }
-            });
-            
-            // Обновляем статус сессии
-            session.estimateApproved = true;
-            session.estimateApprovedAt = new Date();
-            session.approvedEstimateId = estimateId;
-            
-            // ВАЖНО: Сбрасываем флаг доставки чтобы SSE мог отправить клиенту
-            session.estimateDeliveredToClient = false;
-            
-            const savedSession = await session.save();
-            
-            logger.info('✅ Смета утверждена и сохранена в БД', { 
-                sessionId,
-                estimateApproved: savedSession.estimateApproved,
-                approvedAt: savedSession.estimateApprovedAt
-            });
-            
-            // Обновляем сообщение в Telegram
-            await this.bot.editMessageText(
-                '✅ СМЕТА УТВЕРЖДЕНА!\n\n' +
-                `Клиенту отправлено уведомление.\n` +
-                `ID сессии: ${sessionId}\n\n` +
-                `✨ Смета появится в чате клиента автоматически.`,
-                {
-                    chat_id: chatId,
-                    message_id: messageId
-                }
-            );
-            
-            // Отправляем дополнительное подтверждение
-            await this.bot.sendMessage(
-                chatId,
-                `✅ Статус в БД обновлен:\n` +
-                `- estimateApproved: true\n` +
-                `- approvedAt: ${new Date().toLocaleString('ru-RU')}\n` +
-                `- Клиент получит уведомление через SSE/polling`
-            );
             
         } catch (error) {
             logger.error('❌ Ошибка утверждения сметы:', error);
@@ -738,6 +768,24 @@ class TelegramService {
                 logger.error('Не удалось отправить сообщение об ошибке:', sendError);
             }
         }
+    }
+
+    // Вспомогательный метод для форматирования контактов
+    formatContacts(contacts) {
+        if (!contacts) return 'Не указаны';
+        
+        const formatted = [];
+        if (contacts.Telegram || contacts.telegram) {
+            formatted.push(`TG: ${contacts.Telegram || contacts.telegram}`);
+        }
+        if (contacts['Телефон'] || contacts.phone) {
+            formatted.push(`Tel: ${contacts['Телефон'] || contacts.phone}`);
+        }
+        if (contacts.Email || contacts.email) {
+            formatted.push(`Email: ${contacts.Email || contacts.email}`);
+        }
+        
+        return formatted.length > 0 ? formatted.join(', ') : 'Не указаны';
     }
 
     // Обработка редактирования сметы  

@@ -343,6 +343,15 @@ async function gracefulShutdown(signal) {
         await TelegramService.shutdown();
         logger.info('✅ Telegram бот остановлен');
         
+        // Закрываем Puppeteer браузер
+        try {
+            const PDFService = require('./services/PDFService');
+            await PDFService.closeBrowser();
+            logger.info('✅ Puppeteer браузер закрыт');
+        } catch (error) {
+            logger.warn('Ошибка закрытия Puppeteer:', error.message);
+        }
+
         // Закрываем соединение с MongoDB
         if (mongoose.connection.readyState === 1) {
             await mongoose.connection.close();

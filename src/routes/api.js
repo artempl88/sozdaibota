@@ -287,6 +287,69 @@ router.post('/force-estimate', async (req, res) => {
 // Проверка утвержденной сметы
 router.get('/check-approved-estimate/:sessionId', (req, res) => ChatController.checkApprovedEstimate(req, res));
 
+// Скачивание PDF клиентом
+router.get('/download-client-pdf/:sessionId/:estimateId', async (req, res) => {
+    try {
+        const { sessionId, estimateId } = req.params;
+        const { PreChatForm } = require('../models');
+        const PDFService = require('../services/PDFService');
+        
+        logger.info('📥 Запрос на скачивание PDF клиентом', { sessionId, estimateId });
+        
+        // Находим сессию
+        const session = await PreChatForm.findOne({ sessionId });
+        
+        if (!session || !session.estimateApproved) {
+            return res.status(404).json({
+                success: false,
+                error: 'Смета не найдена или не утверждена'
+            });
+        }
+        
+        // Подготавливаем данные
+        const clientInfo = {
+            name: session.name,
+            position: session.position,
+            industry: session.industry,
+            budget: session.budget,
+            timeline: session.timeline,
+            contacts: session.contacts
+        };
+        
+        const estimate = {
+            totalCost: session.estimateData?.totalCost || 0,
+            totalHours: session.estimateData?.totalHours || 0,
+            timeline: session.estimateData?.timeline || session.timeline || '2-3 недели',
+            components: session.estimateData?.components || [],
+            detectedFeatures: session.estimateData?.features || [],
+            businessType: session.estimateData?.businessType || session.industry,
+            recommendations: session.estimateData?.recommendations || []
+        };
+        
+        // Генерируем PDF
+        const pdfPath = await PDFService.generateClientPDF(estimate, clientInfo, sessionId);
+        
+        // Отправляем файл
+        res.download(pdfPath, `Коммерческое_предложение_${new Date().toISOString().split('T')[0]}.pdf`, async (err) => {
+            if (err) {
+                logger.error('Ошибка отправки PDF:', err);
+            }
+            
+            // Удаляем временный файл
+            setTimeout(async () => {
+                await PDFService.cleanupTempFiles([pdfPath]);
+            }, 5000);
+        });
+        
+    } catch (error) {
+        logger.error('Ошибка генерации PDF для скачивания:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Не удалось сгенерировать PDF'
+        });
+    }
+});
+
 // === УПРАВЛЕНИЕ КАТАЛОГОМ ФУНКЦИЙ ===
 
 // Получить все функции

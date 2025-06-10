@@ -242,7 +242,12 @@ class ChatController {
                                         features: estimate?.detectedFeatures || [],
                                         componentsCount: estimate?.components?.length || 0,
                                         estimateId: estimate?._id || 'temp',
-                                        sentToTelegram: true
+                                        sentToTelegram: true,
+                                        // НОВОЕ: Сохраняем полные компоненты для PDF
+                                        components: estimate?.components || [],
+                                        timeline: estimate?.timeline || '2-3 недели',
+                                        businessType: estimate?.businessType || '',
+                                        recommendations: estimate?.recommendations || []
                                     };
                                     
                                     await session.save();

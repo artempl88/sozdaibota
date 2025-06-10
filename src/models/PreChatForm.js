@@ -93,7 +93,20 @@ const PreChatFormSchema = new mongoose.Schema({
         totalHours: Number,
         features: [String],
         estimateId: String,
-        sentToTelegram: Boolean
+        sentToTelegram: Boolean,
+        // Полные данные для PDF
+        components: [{
+            name: String,
+            description: String,
+            hours: Number,
+            cost: Number,
+            category: String,
+            complexity: String
+        }],
+        timeline: String,
+        businessType: String,
+        recommendations: [String],
+        componentsCount: Number
     },
     // Поля для утвержденной сметы
     estimateApproved: {
