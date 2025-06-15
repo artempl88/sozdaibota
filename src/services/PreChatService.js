@@ -105,17 +105,25 @@ class PreChatService {
     // Получение сессии
     async getSession(sessionId) {
         try {
-            // Сначала проверяем кеш
+            // Проверяем кеш
             if (this.sessionCache.has(sessionId)) {
-                return this.sessionCache.get(sessionId);
+                const cachedSession = this.sessionCache.get(sessionId);
+                logger.info('Сессия получена из кеша', { sessionId });
+                return cachedSession;
             }
             
-            // Если нет в кеше - ищем в БД
+            // Получаем из БД
             const session = await PreChatForm.findOne({ sessionId });
             
             if (session) {
-                // Добавляем в кеш
+                // Обновляем кеш
                 this.sessionCache.set(sessionId, session);
+                logger.info('Сессия получена из БД и закеширована', { 
+                    sessionId,
+                    historyLength: session.chatHistory.length
+                });
+            } else {
+                logger.warn('Сессия не найдена в БД', { sessionId });
             }
             
             return session;
@@ -143,6 +151,13 @@ class PreChatService {
                 metadata: metadata
             };
             
+            logger.info('Добавление сообщения в историю', {
+                sessionId,
+                role,
+                contentLength: content.length,
+                messageType: metadata.messageType || 'unknown'
+            });
+            
             session.chatHistory.push(message);
             session.lastActivity = new Date();
             
@@ -150,6 +165,11 @@ class PreChatService {
             
             // Обновляем кеш
             this.sessionCache.set(sessionId, session);
+            
+            logger.info('Сообщение успешно сохранено', {
+                sessionId,
+                historyLength: session.chatHistory.length
+            });
             
             return true;
             

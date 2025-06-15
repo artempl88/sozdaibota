@@ -163,22 +163,20 @@ class ChatController {
             // Получаем ответ от GPT
             const gptResponse = await AdvancedGPTService.callOpenAIWithPrompt(messages);
 
-            // Сохраняем историю чата в PreChatForm
-            session.chatHistory.push(
-                { 
-                    role: 'user', 
-                    content: message,
-                    timestamp: new Date(),
-                    metadata: { messageType: 'text' }
-                },
-                { 
-                    role: 'assistant', 
-                    content: gptResponse,
-                    timestamp: new Date(),
-                    metadata: { messageType: 'text' }
-                }
+            // Сохраняем историю чата через PreChatService
+            await PreChatService.addMessageToHistory(
+                sessionId,
+                'user',
+                message,
+                { messageType: 'text' }
             );
-            await session.save();
+            
+            await PreChatService.addMessageToHistory(
+                sessionId,
+                'assistant',
+                gptResponse,
+                { messageType: 'text' }
+            );
 
             // Сохраняем в Conversation если доступно
             if (conversation) {
@@ -959,19 +957,13 @@ class ChatController {
                 });
             }
 
-            // Фильтруем только текстовые сообщения
-            const chatHistory = session.chatHistory
-                .filter(msg => {
-                    if (!msg.metadata) return true; // Пропускаем обычные сообщения
-                    if (msg.metadata.messageType === 'text') return true;
-                    if (msg.metadata.messageType === 'approved_estimate') return false;
-                    return true;
-                })
-                .map(msg => ({
-                    role: msg.role,
-                    content: msg.content,
-                    timestamp: msg.timestamp
-                }));
+            // Возвращаем все сообщения из истории
+            const chatHistory = session.chatHistory.map(msg => ({
+                role: msg.role,
+                content: msg.content,
+                timestamp: msg.timestamp,
+                metadata: msg.metadata
+            }));
 
             res.json({
                 success: true,
