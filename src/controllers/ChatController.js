@@ -544,9 +544,30 @@ class ChatController {
                 });
             }
 
+            // НОВОЕ: Загружаем историю из БД если она не передана
+            let actualConversation = conversation;
+            if (sessionId && Conversation && (!conversation || conversation.length === 0)) {
+                try {
+                    const savedConv = await Conversation.findBySessionId(sessionId);
+                    if (savedConv && savedConv.messages) {
+                        // Преобразуем сообщения из БД в нужный формат
+                        actualConversation = savedConv.messages.map(msg => ({
+                            role: msg.role,
+                            content: msg.content
+                        }));
+                        logger.info('История загружена из БД', { 
+                            sessionId, 
+                            messagesCount: actualConversation.length 
+                        });
+                    }
+                } catch (dbError) {
+                    logger.error('Ошибка загрузки истории из БД:', dbError);
+                }
+            }
+
             logger.info('Обработка сообщения', { 
                 messageLength: message.length,
-                conversationLength: conversation.length 
+                conversationLength: actualConversation.length 
             });
 
             // Сохранение диалога в MongoDB если доступно
@@ -571,19 +592,18 @@ class ChatController {
             }
 
             // Проверяем потребность в расчете сметы
-            const shouldCalculate = await AdvancedGPTService.analyzeUserIntent(message, conversation);
+            const shouldCalculate = await AdvancedGPTService.analyzeUserIntent(message, actualConversation);
             
             let estimate = null;
             let estimateMessage = '';
 
             if (shouldCalculate) {
-                const functionalityReady = await AdvancedGPTService.checkFunctionalityReadiness(conversation);
+                const functionalityReady = await AdvancedGPTService.checkFunctionalityReadiness(actualConversation);
                 
                 if (functionalityReady) {
                     logger.info('Все условия выполнены - запускаем расчет сметы');
                     
-                    // ИСПРАВЛЕНО: Передаем conversation напрямую
-                    estimate = await EstimateService.calculateProjectEstimate(conversation);
+                    estimate = await EstimateService.calculateProjectEstimate(actualConversation);
                     
                     // Отправляем в Telegram
                     await TelegramService.sendEstimateToTelegram(estimate, sessionId);
@@ -610,13 +630,13 @@ class ChatController {
             }
 
             // Формируем сообщения для GPT
-            const systemPrompt = AdvancedGPTService.buildSystemPrompt(mode, conversation.length);
+            const systemPrompt = AdvancedGPTService.buildSystemPrompt(mode, actualConversation.length);
             let messages = [
                 { role: 'system', content: systemPrompt }
             ];
 
             // Добавляем историю (последние 6 сообщений)
-            messages = messages.concat(conversation.slice(-6));
+            messages = messages.concat(actualConversation.slice(-6));
             messages.push({ role: 'user', content: message });
 
             // Вызываем GPT
@@ -650,7 +670,12 @@ class ChatController {
                 success: true,
                 message: finalMessage,
                 estimate: estimate,
-                hasEstimate: !!estimate
+                hasEstimate: !!estimate,
+                // НОВОЕ: Возвращаем актуальную историю для синхронизации
+                conversation: actualConversation.concat([
+                    { role: 'user', content: message },
+                    { role: 'assistant', content: finalMessage }
+                ])
             });
 
         } catch (error) {
