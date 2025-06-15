@@ -2127,9 +2127,6 @@
                     try {
                         console.log('🔍 Проверяем существующую сессию...');
                         
-                        // ДОБАВИТЬ ПОСЛЕ console.log
-                        const localHistoryLoaded = this.loadHistoryFromLocalStorage();
-                        
                         const response = await fetch(this.apiConfig.sessionCheckEndpoint, {
                             method: 'POST',
                             headers: {
@@ -2143,21 +2140,19 @@
                         const data = await response.json();
                         
                         if (data.success && data.sessionFound) {
-                            console.log('✅ Найдена существующая сессия:', data.sessionId);
+                            console.log(`✅ Найдена сессия: ${data.sessionId}`);
                             
                             this.sessionManager.sessionId = data.sessionId;
                             this.formData = data.formData;
+                            
                             this.isFormMode = false;
                             
                             this.hideForm();
                             this.showChatInterface();
                             
-                            // ЗАМЕНИТЬ await this.loadChatHistory(); НА:
-                            if (!localHistoryLoaded) {
-                                await this.loadChatHistory();
-                            } else {
-                                this.displayLoadedHistory();
-                            }
+                            // ИСПРАВЛЕНО: Всегда загружаем историю из MongoDB (приоритет над localStorage)
+                            console.log('📜 Загружаем актуальную историю из MongoDB...');
+                            await this.loadChatHistory();
                         } else {
                             console.log('📝 Новый пользователь, показываем форму анкеты');
                             // ДОБАВИТЬ В else БЛОК
