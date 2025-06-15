@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     xdg-utils \
+    libgbm1 \
+    libxshmfence1 \
+    libasound2-dev \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 

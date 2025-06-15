@@ -117,7 +117,7 @@ const PreChatFormSchema = new mongoose.Schema({
         type: Date
     },
     approvedEstimateId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'Estimate'
     },
     estimateDeliveredToClient: {
