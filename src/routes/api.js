@@ -131,26 +131,63 @@ router.post('/send-approved-estimate', (req, res) => ChatController.sendApproved
 router.get('/estimate-updates/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
     
-    logger.info(`🔌 SSE подключение установлено`, {
-        sessionId: sessionId,
-        timestamp: new Date().toISOString()
-    });
+    if (!sessionId) {
+        return res.status(400).json({ error: 'Не указан ID сессии' });
+    }
     
-    // Настраиваем SSE
+    logger.info('🔌 SSE соединение установлено', { sessionId });
+    
+    // Настройка SSE
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
+        'Connection': 'keep-alive'
     });
     
-    // Отправляем начальное сообщение
-    res.write('data: {"type":"connected"}\n\n');
+    // Отправляем начальное сообщение для подтверждения соединения
+    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE соединение установлено' })}\n\n`);
     
+    // Проверяем сразу при подключении
+    try {
+        const { PreChatForm } = require('../models');
+        const session = await PreChatForm.findOne({ sessionId });
+        
+        if (session && session.estimateApproved) {
+            logger.info('✅ SSE: Найдена утвержденная смета при подключении!', { sessionId });
+            
+            const estimateMessage = session.chatHistory
+                .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
+                .pop();
+            
+            if (estimateMessage) {
+                // Отправляем утвержденную смету клиенту
+                const data = JSON.stringify({
+                    type: 'approved_estimate',
+                    estimate: {
+                        message: estimateMessage.content,
+                        approvedAt: estimateMessage.metadata.approvedAt,
+                        estimateId: estimateMessage.metadata.estimateId
+                    }
+                });
+                
+                res.write(`data: ${data}\n\n`);
+                logger.info('📤 SSE: Смета отправлена клиенту при подключении', { sessionId });
+                
+                // Помечаем как доставленную
+                session.estimateDeliveredToClient = true;
+                session.estimateDeliveredAt = new Date();
+                await session.save();
+                
+                logger.info('✅ SSE: Статус обновлен - смета доставлена', { sessionId });
+            }
+        }
+    } catch (error) {
+        logger.error('❌ SSE: Ошибка начальной проверки:', error);
+    }
+    
+    // Периодическая проверка
     let checkCount = 0;
-    
-    // Функция для проверки сметы
-    const checkEstimate = async () => {
+    const interval = setInterval(async () => {
         try {
             checkCount++;
             logger.info(`🔍 SSE проверка #${checkCount} для сессии ${sessionId}`);
@@ -213,13 +250,7 @@ router.get('/estimate-updates/:sessionId', async (req, res) => {
         } catch (error) {
             logger.error('❌ SSE ошибка проверки сметы:', error);
         }
-    };
-    
-    // Проверяем каждые 2 секунды (чаще для быстрой реакции)
-    const interval = setInterval(checkEstimate, 2000);
-    
-    // Проверяем сразу
-    checkEstimate();
+    }, 2000);
     
     // Отправляем heartbeat каждые 30 секунд чтобы соединение не закрылось
     const heartbeat = setInterval(() => {

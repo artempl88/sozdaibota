@@ -286,7 +286,7 @@ class ChatController {
 
             // Проверяем, есть ли утвержденная смета, которую нужно показать
             let approvedEstimate = null;
-            if (session.estimateApproved && !session.estimateDeliveredToClient) {
+            if (session.estimateApproved) {
                 // Находим сообщение с утвержденной сметой
                 const estimateMessage = session.chatHistory
                     .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
