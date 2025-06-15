@@ -2674,11 +2674,16 @@
                                 
                                 // Если прошло меньше 1 часа - показываем уведомление
                                 if (hoursSinceEstimate < 1) {
+                                    console.log('⏰ Смета отправлена недавно, запускаем отслеживание...');
                                     startEstimateTracking(this.sessionManager.sessionId);
                                 } else {
                                     console.log('⏰ Смета устарела, не показываем уведомление об ожидании');
                                 }
                             }
+                            
+                            // НОВОЕ: Проверяем наличие утвержденной сметы при загрузке
+                            console.log('🔍 Проверяем наличие утвержденной сметы...');
+                            await this.checkForApprovedEstimateOnLoad();
                             
                             setTimeout(() => {
                                 if (this.elements.messages) {
@@ -2691,6 +2696,39 @@
                         
                     } catch (error) {
                         console.error('❌ Ошибка загрузки истории чата:', error);
+                    }
+                }
+
+                // НОВЫЙ МЕТОД: Проверка утвержденной сметы при загрузке страницы
+                async checkForApprovedEstimateOnLoad() {
+                    if (!this.sessionManager.sessionId) return;
+                    
+                    try {
+                        console.log('🔍 Проверяем утвержденную смету при загрузке...');
+                        
+                        const response = await fetch(`/api/check-approved-estimate/${this.sessionManager.sessionId}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.hasApprovedEstimate) {
+                            console.log('✅ Найдена утвержденная смета при загрузке!', data.estimate);
+                            
+                            // Проверяем, не отображена ли уже смета в чате
+                            const existingEstimate = document.querySelector('.approved-estimate');
+                            if (!existingEstimate) {
+                                addApprovedEstimateToChat(data.estimate);
+                                
+                                showNotification('🎉 У вас есть утвержденная смета!', {
+                                    body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.',
+                                    icon: '/icon-success.png'
+                                });
+                            } else {
+                                console.log('📋 Смета уже отображена в чате');
+                            }
+                        } else {
+                            console.log('📋 Утвержденной сметы нет');
+                        }
+                    } catch (error) {
+                        console.error('❌ Ошибка проверки утвержденной сметы:', error);
                     }
                 }
 
@@ -2979,6 +3017,9 @@
                 constructor(sessionId) {
                     this.sessionId = sessionId;
                     this.eventSource = null;
+                    this.connected = false;
+                    this.retryCount = 0;
+                    this.maxRetries = 3;
                 }
                 
                 connect() {
@@ -2986,30 +3027,76 @@
                         this.disconnect();
                     }
                     
-                    console.log('🔌 Подключаемся к SSE для отслеживания сметы...');
-                    this.eventSource = new EventSource(`/api/estimate-updates/${this.sessionId}`);
+                    console.log('🔌 Подключаемся к SSE для отслеживания сметы...', {
+                        sessionId: this.sessionId,
+                        url: `/api/estimate-updates/${this.sessionId}`
+                    });
                     
-                    this.eventSource.onmessage = (event) => {
-                        try {
-                            const data = JSON.parse(event.data);
-                            
-                            if (data.type === 'approved_estimate') {
-                                console.log('✅ Получена утвержденная смета через SSE!', data.estimate);
-                                this.handleApprovedEstimate(data.estimate);
-                                this.disconnect();
-                                hideEstimateCheckingNotice();
+                    try {
+                        this.eventSource = new EventSource(`/api/estimate-updates/${this.sessionId}`);
+                        
+                        this.eventSource.onopen = (event) => {
+                            console.log('✅ SSE соединение установлено!', event);
+                            this.connected = true;
+                            this.retryCount = 0;
+                        };
+                        
+                        this.eventSource.onmessage = (event) => {
+                            try {
+                                console.log('📨 SSE сообщение получено:', event.data);
+                                const data = JSON.parse(event.data);
+                                
+                                if (data.type === 'approved_estimate') {
+                                    console.log('✅ Получена утвержденная смета через SSE!', data.estimate);
+                                    this.handleApprovedEstimate(data.estimate);
+                                    this.disconnect();
+                                    hideEstimateCheckingNotice();
+                                } else if (data.type === 'connected') {
+                                    console.log('🔗 SSE подтверждение подключения');
+                                } else {
+                                    console.log('📋 SSE сообщение другого типа:', data.type);
+                                }
+                            } catch (error) {
+                                console.error('❌ Ошибка обработки SSE сообщения:', error, event.data);
                             }
-                        } catch (error) {
-                            console.error('Ошибка обработки SSE:', error);
-                        }
-                    };
-                    
-                    this.eventSource.onerror = (error) => {
-                        console.error('SSE ошибка:', error);
-                        // Переключаемся на polling при ошибке SSE
-                        this.disconnect();
+                        };
+                        
+                        this.eventSource.onerror = (error) => {
+                            console.error('❌ SSE ошибка:', error, {
+                                readyState: this.eventSource?.readyState,
+                                url: this.eventSource?.url
+                            });
+                            
+                            this.connected = false;
+                            this.retryCount++;
+                            
+                            if (this.retryCount >= this.maxRetries) {
+                                console.log('🔄 Максимум попыток SSE достигнут, переключаемся на polling');
+                                this.disconnect();
+                                startEstimatePolling(this.sessionId);
+                            } else {
+                                console.log(`🔄 Попытка переподключения SSE ${this.retryCount}/${this.maxRetries}`);
+                                setTimeout(() => {
+                                    if (!this.connected) {
+                                        this.connect();
+                                    }
+                                }, 2000 * this.retryCount);
+                            }
+                        };
+                        
+                        // Таймаут для проверки подключения
+                        setTimeout(() => {
+                            if (!this.connected) {
+                                console.log('⏰ SSE не подключился за 10 секунд, переключаемся на polling');
+                                this.disconnect();
+                                startEstimatePolling(this.sessionId);
+                            }
+                        }, 10000);
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка создания SSE соединения:', error);
                         startEstimatePolling(this.sessionId);
-                    };
+                    }
                 }
                 
                 handleApprovedEstimate(estimate) {
@@ -3028,8 +3115,10 @@
                 
                 disconnect() {
                     if (this.eventSource) {
+                        console.log('🔌 Закрываем SSE соединение');
                         this.eventSource.close();
                         this.eventSource = null;
+                        this.connected = false;
                     }
                 }
             }
@@ -3116,6 +3205,8 @@
             // Polling функция для проверки сметы
             async function checkForApprovedEstimate(sessionId) {
                 try {
+                    console.log('🔍 Проверяем утвержденную смету (polling)...', { sessionId });
+                    
                     const response = await fetch(`/api/check-approved-estimate/${sessionId}`);
                     const data = await response.json();
                     
@@ -3124,16 +3215,26 @@
                         
                         stopEstimatePolling();
                         hideEstimateCheckingNotice();
-                        addApprovedEstimateToChat(data.estimate);
                         
-                        showNotification('🎉 Ваша смета утверждена!', {
-                            body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.'
-                        });
+                        // Проверяем, не отображена ли уже смета в чате
+                        const existingEstimate = document.querySelector('.approved-estimate');
+                        if (!existingEstimate) {
+                            addApprovedEstimateToChat(data.estimate);
+                            
+                            showNotification('🎉 Ваша смета утверждена!', {
+                                body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.'
+                            });
+                            
+                            playNotificationSound();
+                        }
                         
-                        playNotificationSound();
+                        return true; // Смета найдена
                     }
+                    
+                    return false; // Смета не найдена
                 } catch (error) {
-                    console.error('Ошибка проверки сметы:', error);
+                    console.error('❌ Ошибка проверки сметы:', error);
+                    return false;
                 }
             }
 
@@ -3167,19 +3268,34 @@
 
             // Функция для начала отслеживания сметы
             function startEstimateTracking(sessionId) {
+                console.log('🚀 Запускаем отслеживание утвержденной сметы...', { sessionId });
+                
+                // Останавливаем предыдущее отслеживание если есть
+                stopEstimateTracking();
+                
                 currentEstimateSessionId = sessionId;
                 showEstimateCheckingNotice();
                 
-                // Сначала пробуем SSE
-                estimateSSE = new EstimateSSEClient(sessionId);
-                estimateSSE.connect();
-                
-                // Запускаем polling как fallback через 5 секунд
-                setTimeout(() => {
-                    if (!estimateSSE || !estimateSSE.eventSource) {
-                        startEstimatePolling(sessionId);
+                // Сначала делаем быструю проверку
+                checkForApprovedEstimate(sessionId).then(found => {
+                    if (found) {
+                        console.log('✅ Смета уже утверждена, не запускаем отслеживание');
+                        return;
                     }
-                }, 5000);
+                    
+                    // Если смета не найдена - запускаем SSE
+                    console.log('🔌 Запускаем SSE для отслеживания...');
+                    estimateSSE = new EstimateSSEClient(sessionId);
+                    estimateSSE.connect();
+                    
+                    // Запускаем polling как fallback через 15 секунд
+                    setTimeout(() => {
+                        if (estimateSSE && !estimateSSE.connected) {
+                            console.log('🔄 SSE не подключился, запускаем polling fallback');
+                            startEstimatePolling(sessionId);
+                        }
+                    }, 15000);
+                });
             }
 
             // Функция для остановки отслеживания
