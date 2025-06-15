@@ -287,6 +287,153 @@ router.post('/force-estimate', async (req, res) => {
 // Проверка утвержденной сметы
 router.get('/check-approved-estimate/:sessionId', (req, res) => ChatController.checkApprovedEstimate(req, res));
 
+// НОВЫЙ: Тестовый endpoint для симуляции утверждения сметы
+router.post('/test-approve-estimate', async (req, res) => {
+    try {
+        const { sessionId } = req.body;
+        
+        if (!sessionId) {
+            return res.status(400).json({
+                success: false,
+                error: 'sessionId обязателен'
+            });
+        }
+        
+        logger.info('🧪 Тестовое утверждение сметы', { sessionId });
+        
+        const { PreChatForm } = require('../models');
+        
+        // Находим сессию
+        const session = await PreChatForm.findOne({ sessionId });
+        
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                error: 'Сессия не найдена'
+            });
+        }
+        
+        // Формируем тестовое сообщение сметы
+        const testEstimateMessage = `✅ **Ваше коммерческое предложение готово!**
+
+💰 **Стоимость проекта:** 75 000 ₽
+⏱️ **Время разработки:** 120 часов
+📅 **Срок реализации:** 2-3 недели
+
+📋 **В стоимость входит:**
+• Создание Telegram бота с GPT интеграцией
+• Система обработки заявок и уведомлений
+• Интеграция с CRM системой
+• Настройка автоответчика
+• Тестирование и запуск
+
+📄 **PDF документ с полным коммерческим предложением прикреплен к этому сообщению.**
+
+**Следующие шаги:**
+1. Скачайте и изучите коммерческое предложение
+2. Мы свяжемся с вами для обсуждения деталей
+3. После согласования подпишем договор
+4. Начнем разработку вашего бота
+
+📞 Ожидайте звонка от менеджера в течение 30 минут.
+
+Если у вас есть вопросы - напишите здесь или свяжитесь с нами удобным способом.`;
+        
+        // Добавляем сообщение в историю чата
+        session.chatHistory.push({
+            role: 'assistant',
+            content: testEstimateMessage,
+            timestamp: new Date(),
+            metadata: {
+                messageType: 'approved_estimate',
+                approvedAt: new Date(),
+                estimateId: 'test_estimate_' + Date.now(),
+                pdfPath: '/test/path/to/estimate.pdf'
+            }
+        });
+        
+        // Обновляем статус сессии
+        session.estimateApproved = true;
+        session.estimateApprovedAt = new Date();
+        session.approvedEstimateId = 'test_estimate_' + Date.now();
+        session.estimateDeliveredToClient = false; // Важно: сбрасываем для SSE
+        
+        await session.save();
+        
+        logger.info('✅ Тестовая смета утверждена и сохранена', { sessionId });
+        
+        res.json({
+            success: true,
+            message: 'Тестовая смета утверждена',
+            sessionId: sessionId,
+            estimateId: session.approvedEstimateId
+        });
+        
+    } catch (error) {
+        logger.error('❌ Ошибка тестового утверждения сметы:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка симуляции утверждения'
+        });
+    }
+});
+
+// НОВЫЙ: Тестовый endpoint для сброса статуса сметы
+router.post('/test-reset-estimate', async (req, res) => {
+    try {
+        const { sessionId } = req.body;
+        
+        if (!sessionId) {
+            return res.status(400).json({
+                success: false,
+                error: 'sessionId обязателен'
+            });
+        }
+        
+        logger.info('🔄 Сброс статуса сметы для тестирования', { sessionId });
+        
+        const { PreChatForm } = require('../models');
+        
+        // Находим сессию
+        const session = await PreChatForm.findOne({ sessionId });
+        
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                error: 'Сессия не найдена'
+            });
+        }
+        
+        // Удаляем утвержденные сметы из истории чата
+        session.chatHistory = session.chatHistory.filter(msg => 
+            !msg.metadata || msg.metadata.messageType !== 'approved_estimate'
+        );
+        
+        // Сбрасываем статусы
+        session.estimateApproved = false;
+        session.estimateApprovedAt = null;
+        session.approvedEstimateId = null;
+        session.estimateDeliveredToClient = false;
+        
+        await session.save();
+        
+        logger.info('✅ Статус сметы сброшен', { sessionId });
+        
+        res.json({
+            success: true,
+            message: 'Статус сметы сброшен',
+            sessionId: sessionId
+        });
+        
+    } catch (error) {
+        logger.error('❌ Ошибка сброса статуса сметы:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка сброса статуса'
+        });
+    }
+});
+
 // Скачивание PDF клиентом
 router.get('/download-client-pdf/:sessionId/:estimateId', async (req, res) => {
     try {
