@@ -9,7 +9,7 @@ module.exports = {
         maxUploadSize: '10mb'
     },
     mongodb: {
-        uri: 'mongodb+srv://admin:4wm8yJ6nXJLsrlSO@cluster0.k5x3x.mongodb.net/sozdaibota-db?retryWrites=true&w=majority'
+        uri: 'mongodb://localhost:27017/sozdaibota-db'  // Локальная MongoDB
     },
     openai: {
         apiKey: process.env.OPENAI_API_KEY,

@@ -1,0 +1,45 @@
+# Docker Compose override для локальной разработки
+# Автоматически применяется при запуске docker-compose up
+
+version: '3.8'
+
+services:
+  # Упрощенная конфигурация MongoDB для разработки
+  mongodb:
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=sozdaibota-db
+    ports:
+      - "27017:27017"
+
+  # Приложение в режиме разработки
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/sozdaibota-db?authSource=admin
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_key_here}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-your_telegram_token_here}
+      - ADMIN_CHAT_ID=${ADMIN_CHAT_ID:-123456789}
+      - ENCRYPTION_KEY=hjkhjkyuifghvbnnm-secure-key-32chars-long-encryption-key-2024
+      - ALLOWED_ORIGINS=http://localhost:3001,http://127.0.0.1:3001
+    volumes:
+      # Монтируем код для hot reload в разработке
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+    ports:
+      - "3001:3001"
+    # Команда для разработки с nodemon
+    command: ["node", "start.js"]
+    
+  # Отключаем nginx в разработке
+  nginx:
+    profiles:
+      - disabled 
