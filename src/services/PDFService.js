@@ -17,6 +17,27 @@ class PDFService {
             success: '#4caf50',
             background: '#f8f9fa'
         };
+        
+        // Эмодзи для иконок
+        this.icons = {
+            money: '💰',
+            time: '⏱️',
+            calendar: '📅',
+            user: '👤',
+            work: '📋',
+            chat: '💬',
+            phone: '📱',
+            email: '📧',
+            telegram: '📱',
+            benefit: '✅',
+            step: '📍',
+            company: '🤖',
+            cost: '💲',
+            complexity: '⚡',
+            category: '📂',
+            info: 'ℹ️',
+            whatsapp: '📲'
+        };
     }
 
     async initBrowser() {
@@ -29,7 +50,8 @@ class PDFService {
                         '--disable-setuid-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-accelerated-2d-canvas',
-                        '--disable-gpu'
+                        '--disable-gpu',
+                        '--font-render-hinting=none'
                     ]
                 });
                 logger.info('✅ Puppeteer browser инициализирован');
@@ -140,6 +162,7 @@ class PDFService {
     <title>Смета и история диалога - ${clientInfo?.name || sessionId}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
         
         * {
             margin: 0;
@@ -148,48 +171,28 @@ class PDFService {
         }
         
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', -apple-system, BlinkMacSystemFont, sans-serif;
             line-height: 1.4;
             color: #222;
             background: #fff;
             font-size: 11px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
-        /* CSS иконки */
-        .icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            font-size: 8px;
-            font-weight: bold;
-            margin-right: 4px;
+        /* Стили для эмодзи */
+        .emoji {
+            font-family: 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
+            font-size: 14px;
+            display: inline-block;
+            margin-right: 6px;
             vertical-align: middle;
         }
         
-        .icon-money { background: #4caf50; color: white; }
-        .icon-time { background: #ff9800; color: white; }
-        .icon-calendar { background: #2196f3; color: white; }
-        .icon-user { background: #9c27b0; color: white; }
-        .icon-work { background: #607d8b; color: white; }
-        .icon-chat { background: #00bcd4; color: white; }
-        .icon-phone { background: #4caf50; color: white; }
-        .icon-email { background: #f44336; color: white; }
-        .icon-telegram { background: #0088cc; color: white; }
-        .icon-benefit { background: #e3f2fd; color: #0088CC; border: 1px solid #0088CC; }
-        
-        .icon-money::before { content: '₽'; }
-        .icon-time::before { content: '⌚'; }
-        .icon-calendar::before { content: '📅'; }
-        .icon-user::before { content: '👤'; }
-        .icon-work::before { content: '📋'; }
-        .icon-chat::before { content: '💬'; }
-        .icon-phone::before { content: '📱'; }
-        .icon-email::before { content: '@'; }
-        .icon-telegram::before { content: 'TG'; }
-        .icon-benefit::before { content: '✓'; }
+        .emoji-small {
+            font-size: 12px;
+            margin-right: 4px;
+        }
         
         .header {
             background: linear-gradient(135deg, #0088CC 0%, #00C2FF 100%);
@@ -230,8 +233,7 @@ class PDFService {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 18px;
             border: 2px solid rgba(255, 255, 255, 0.3);
         }
         
@@ -456,18 +458,18 @@ class PDFService {
     <div class="header">
         <div class="header-content">
             <div class="logo">
-                <div class="logo-icon">BOT</div>
+                <div class="logo-icon">${this.icons.company}</div>
                 <div class="company-name">Создать Бота</div>
             </div>
             <h1>Смета проекта и история переговоров</h1>
             <div class="header-subtitle">Разработка умных Telegram-ботов</div>
             <div class="client-info">
-                <div class="client-info-item"><span class="icon icon-user"></span> <strong>Клиент:</strong> ${this.escapeHtml(clientInfo?.name || 'Не указано')}</div>
-                <div class="client-info-item"><span class="icon icon-work"></span> <strong>Должность:</strong> ${this.escapeHtml(clientInfo?.position || 'Не указано')}</div>
-                <div class="client-info-item"><span class="icon icon-work"></span> <strong>Отрасль:</strong> ${this.escapeHtml(clientInfo?.industry || 'Не указано')}</div>
-                <div class="client-info-item"><span class="icon icon-money"></span> <strong>Бюджет:</strong> ${this.escapeHtml(clientInfo?.budget || 'Не указано')}</div>
-                <div class="client-info-item"><span class="icon icon-calendar"></span> <strong>Сроки:</strong> ${this.escapeHtml(clientInfo?.timeline || 'Не указано')}</div>
-                <div class="client-info-item"><span class="icon icon-calendar"></span> <strong>Дата:</strong> ${currentDate}</div>
+                <div class="client-info-item"><span class="emoji">${this.icons.user}</span> <strong>Клиент:</strong> ${this.escapeHtml(clientInfo?.name || 'Не указано')}</div>
+                <div class="client-info-item"><span class="emoji">${this.icons.work}</span> <strong>Должность:</strong> ${this.escapeHtml(clientInfo?.position || 'Не указано')}</div>
+                <div class="client-info-item"><span class="emoji">${this.icons.category}</span> <strong>Отрасль:</strong> ${this.escapeHtml(clientInfo?.industry || 'Не указано')}</div>
+                <div class="client-info-item"><span class="emoji">${this.icons.money}</span> <strong>Бюджет:</strong> ${this.escapeHtml(clientInfo?.budget || 'Не указано')}</div>
+                <div class="client-info-item"><span class="emoji">${this.icons.calendar}</span> <strong>Сроки:</strong> ${this.escapeHtml(clientInfo?.timeline || 'Не указано')}</div>
+                <div class="client-info-item"><span class="emoji">${this.icons.calendar}</span> <strong>Дата:</strong> ${currentDate}</div>
                 ${this.generateContactsHTML(clientInfo?.contacts)}
             </div>
         </div>
@@ -477,7 +479,7 @@ class PDFService {
     
     <div class="section">
         <h2 class="section-title">
-            <span class="icon icon-chat"></span>
+            <span class="emoji">${this.icons.chat}</span>
             История диалога с клиентом
         </h2>
         <div class="chat-history">
@@ -505,6 +507,7 @@ class PDFService {
     <title>Коммерческое предложение - ${clientInfo?.name || 'Telegram бот'}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
         
         * {
             margin: 0;
@@ -513,49 +516,28 @@ class PDFService {
         }
         
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', -apple-system, BlinkMacSystemFont, sans-serif;
             line-height: 1.4;
             color: #222;
             background: #fff;
             font-size: 11px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
-        /* CSS иконки */
-        .icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            font-size: 10px;
-            font-weight: bold;
+        /* Стили для эмодзи */
+        .emoji {
+            font-family: 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
+            font-size: 16px;
+            display: inline-block;
             margin-right: 6px;
             vertical-align: middle;
         }
         
-        .icon-money { background: #4caf50; color: white; }
-        .icon-time { background: #ff9800; color: white; }
-        .icon-calendar { background: #2196f3; color: white; }
-        .icon-user { background: #9c27b0; color: white; }
-        .icon-work { background: #607d8b; color: white; }
-        .icon-chat { background: #00bcd4; color: white; }
-        .icon-phone { background: #4caf50; color: white; }
-        .icon-email { background: #f44336; color: white; }
-        .icon-telegram { background: #0088cc; color: white; }
-        .icon-benefit { background: #e3f2fd; color: #0088CC; border: 2px solid #0088CC; }
-        .icon-step { background: #0088CC; color: white; }
-        
-        .icon-money::before { content: '₽'; }
-        .icon-time::before { content: '⌚'; }
-        .icon-calendar::before { content: '📅'; }
-        .icon-user::before { content: '👤'; }
-        .icon-work::before { content: '📋'; }
-        .icon-chat::before { content: '💬'; }
-        .icon-phone::before { content: '📱'; }
-        .icon-email::before { content: '@'; }
-        .icon-telegram::before { content: 'TG'; }
-        .icon-benefit::before { content: '✓'; }
+        .emoji-small {
+            font-size: 12px;
+            margin-right: 4px;
+        }
         
         .header {
             background: linear-gradient(135deg, #0088CC 0%, #00C2FF 100%);
@@ -596,8 +578,7 @@ class PDFService {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 18px;
             border: 2px solid rgba(255, 255, 255, 0.3);
         }
         
@@ -777,10 +758,7 @@ class PDFService {
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            font-size: 10px;
-            font-weight: bold;
-            color: #0088CC;
-            border: 2px solid #0088CC;
+            font-size: 14px;
         }
         
         .benefit-text {
@@ -885,12 +863,12 @@ class PDFService {
     <div class="header">
         <div class="header-content">
             <div class="logo">
-                <div class="logo-icon">BOT</div>
+                <div class="logo-icon">${this.icons.company}</div>
                 <div class="company-name">Создать Бота</div>
             </div>
             <h1>Коммерческое предложение</h1>
             <p class="header-subtitle">Разработка интеллектуального Telegram-бота для вашего бизнеса</p>
-            ${clientInfo?.name ? `<div class="client-greeting">Специально для ${this.escapeHtml(clientInfo.name)}</div>` : ''}
+            ${clientInfo?.name ? `<div class="client-greeting">${this.icons.user} Специально для ${this.escapeHtml(clientInfo.name)}</div>` : ''}
         </div>
     </div>
     
@@ -899,7 +877,7 @@ class PDFService {
     <div class="section">
         <div class="benefits">
             <h2 class="section-title">
-                <span class="icon icon-benefit"></span>
+                <span class="emoji">${this.icons.benefit}</span>
                 Преимущества работы с нами
             </h2>
             <div class="benefits-grid">
@@ -911,21 +889,21 @@ class PDFService {
                     </div>
                 </div>
                 <div class="benefit-item">
-                    <div class="benefit-icon">AI</div>
+                    <div class="benefit-icon">🤖</div>
                     <div class="benefit-text">
                         <strong>Интеграция с ИИ</strong><br>
                         ChatGPT, Claude и другие нейросети для умных диалогов
                     </div>
                 </div>
                 <div class="benefit-item">
-                    <div class="benefit-icon">24/7</div>
+                    <div class="benefit-icon">🛠️</div>
                     <div class="benefit-text">
                         <strong>Поддержка 24/7</strong><br>
                         Техническая поддержка и обновления после запуска
                     </div>
                 </div>
                 <div class="benefit-item">
-                    <div class="benefit-icon">✓</div>
+                    <div class="benefit-icon">✅</div>
                     <div class="benefit-text">
                         <strong>Гарантия качества</strong><br>
                         Тестирование всех функций перед запуском
@@ -938,7 +916,7 @@ class PDFService {
     <div class="section">
         <div class="next-steps">
             <h2 class="section-title">
-                <span class="icon icon-work"></span>
+                <span class="emoji">${this.icons.work}</span>
                 Следующие шаги
             </h2>
             <div class="steps-list">
@@ -974,9 +952,9 @@ class PDFService {
         <div class="footer-logo">Создать Бота</div>
         <div class="footer-contacts">
             <p>Свяжитесь с нами удобным способом:</p>
-            <p><span class="icon icon-email"></span> Email: <a href="mailto:hello@создать-бота.рф">hello@создать-бота.рф</a></p>
-            <p><span class="icon icon-telegram"></span> Telegram: <a href="https://t.me/создать_бота">@создать_бота</a></p>
-            <p><span class="icon icon-work"></span> Сайт: <a href="https://создать-бота.рф">создать-бота.рф</a></p>
+            <p><span class="emoji-small">${this.icons.email}</span> Email: <a href="mailto:hello@создать-бота.рф">hello@создать-бота.рф</a></p>
+            <p><span class="emoji-small">${this.icons.telegram}</span> Telegram: <a href="https://t.me/создать_бота">@создать_бота</a></p>
+            <p><span class="emoji-small">${this.icons.info}</span> Сайт: <a href="https://создать-бота.рф">создать-бота.рф</a></p>
             <p style="margin-top: 10px; opacity: 0.7;">
                 Предложение действительно в течение 14 дней | ID: ${sessionId} | ${currentDate}
             </p>
@@ -995,20 +973,20 @@ class PDFService {
         let html = `
     <div class="total-box">
         <h2>
-            <span class="icon icon-money"></span>
+            <span class="emoji">${this.icons.money}</span>
             ${title}
         </h2>
         <div class="total-amount">${this.formatPrice(estimate.totalCost)} ₽</div>
         <div class="total-details">
-            <div><span class="icon icon-time"></span> Общее время разработки: ${estimate.totalHours || 0} часов</div>
-            <div><span class="icon icon-calendar"></span> Срок реализации: ${estimate.timeline || '2-3 недели'}</div>
-            <div><span class="icon icon-benefit"></span> Включена гарантия и поддержка 3 месяца</div>
+            <div><span class="emoji-small">${this.icons.time}</span> Общее время разработки: ${estimate.totalHours || 0} часов</div>
+            <div><span class="emoji-small">${this.icons.calendar}</span> Срок реализации: ${estimate.timeline || '2-3 недели'}</div>
+            <div><span class="emoji-small">${this.icons.benefit}</span> Включена гарантия и поддержка 3 месяца</div>
         </div>
     </div>
     
     <div class="section">
         <h2 class="section-title">
-            <span class="icon icon-work"></span>
+            <span class="emoji">${this.icons.work}</span>
             Состав работ
         </h2>
         <div class="components-grid">`;
@@ -1026,9 +1004,9 @@ class PDFService {
                 </div>
                 <div class="component-description">${this.escapeHtml(component.description || '')}</div>
                 <div class="component-details">
-                    <div><span class="icon icon-time"></span> <strong>Время:</strong> ${component.hours || 0} ч.</div>
-                    <div><span class="icon icon-benefit"></span> <strong>Сложность:</strong> ${complexityBadge}</div>
-                    <div><span class="icon icon-work"></span> <strong>Категория:</strong> ${this.getCategoryName(component.category)}</div>
+                    <div><span class="emoji-small">${this.icons.time}</span> <strong>Время:</strong> ${component.hours || 0} ч.</div>
+                    <div><span class="emoji-small">${this.icons.complexity}</span> <strong>Сложность:</strong> ${complexityBadge}</div>
+                    <div><span class="emoji-small">${this.icons.category}</span> <strong>Категория:</strong> ${this.getCategoryName(component.category)}</div>
                 </div>
             </div>`;
             });
@@ -1047,16 +1025,16 @@ class PDFService {
         
         let html = '';
         if (contacts.Telegram || contacts.telegram) {
-            html += `<div class="client-info-item"><span class="icon icon-telegram"></span> <strong>Telegram:</strong> ${this.escapeHtml(contacts.Telegram || contacts.telegram)}</div>`;
+            html += `<div class="client-info-item"><span class="emoji">${this.icons.telegram}</span> <strong>Telegram:</strong> ${this.escapeHtml(contacts.Telegram || contacts.telegram)}</div>`;
         }
         if (contacts.Email || contacts.email) {
-            html += `<div class="client-info-item"><span class="icon icon-email"></span> <strong>Email:</strong> ${this.escapeHtml(contacts.Email || contacts.email)}</div>`;
+            html += `<div class="client-info-item"><span class="emoji">${this.icons.email}</span> <strong>Email:</strong> ${this.escapeHtml(contacts.Email || contacts.email)}</div>`;
         }
         if (contacts['Телефон'] || contacts.phone) {
-            html += `<div class="client-info-item"><span class="icon icon-phone"></span> <strong>Телефон:</strong> ${this.escapeHtml(contacts['Телефон'] || contacts.phone)}</div>`;
+            html += `<div class="client-info-item"><span class="emoji">${this.icons.phone}</span> <strong>Телефон:</strong> ${this.escapeHtml(contacts['Телефон'] || contacts.phone)}</div>`;
         }
         if (contacts.WhatsApp || contacts.whatsapp) {
-            html += `<div class="client-info-item"><span class="icon icon-phone"></span> <strong>WhatsApp:</strong> ${this.escapeHtml(contacts.WhatsApp || contacts.whatsapp)}</div>`;
+            html += `<div class="client-info-item"><span class="emoji">${this.icons.whatsapp}</span> <strong>WhatsApp:</strong> ${this.escapeHtml(contacts.WhatsApp || contacts.whatsapp)}</div>`;
         }
         
         return html;
@@ -1076,7 +1054,7 @@ class PDFService {
             html += `
         <div class="message ${isUser ? 'user' : 'assistant'}">
             <div class="message-header">
-                <span class="icon ${isUser ? 'icon-user' : 'icon-chat'}"></span>
+                <span class="emoji-small">${isUser ? this.icons.user : this.icons.chat}</span>
                 ${isUser ? 'Клиент' : 'Консультант'}
             </div>
             <div class="message-content">${this.escapeHtml(msg.content)}</div>
