@@ -296,7 +296,8 @@ class ChatController {
                     approvedEstimate = {
                         message: estimateMessage.content,
                         approvedAt: estimateMessage.metadata.approvedAt,
-                        estimateId: estimateMessage.metadata.estimateId
+                        estimateId: estimateMessage.metadata.estimateId,
+                        pdfPath: estimateMessage.metadata.pdfPath || null
                     };
                     
                     // Помечаем, что смета доставлена клиенту
@@ -844,7 +845,8 @@ class ChatController {
                         estimate: {
                             message: estimateMessage.content,
                             approvedAt: estimateMessage.metadata.approvedAt,
-                            estimateId: estimateMessage.metadata.estimateId
+                            estimateId: estimateMessage.metadata.estimateId,
+                            pdfPath: estimateMessage.metadata.pdfPath || null
                         }
                     });
                 }

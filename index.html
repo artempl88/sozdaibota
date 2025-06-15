@@ -3135,8 +3135,13 @@
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'gpt-message assistant approved-estimate';
                 
-                // Проверяем наличие PDF
-                const hasPdf = estimate.pdfPath || estimate.pdfUrl;
+                // Получаем sessionId из глобального объекта
+                const currentSessionId = window.gptAssistant && window.gptAssistant.sessionManager 
+                    ? window.gptAssistant.sessionManager.sessionId 
+                    : null;
+                
+                // Всегда показываем кнопку скачивания PDF, так как PDF генерируется по запросу
+                const hasPdf = true;
                 
                 messageDiv.innerHTML = `
                     <div class="estimate-approved-badge">
@@ -3146,7 +3151,7 @@
                     <div class="message-content">${formatEstimateMessage(estimate.message)}</div>
                     ${hasPdf ? `
                     <div class="pdf-download-section">
-                        <button class="pdf-download-btn" onclick="downloadEstimatePDF('${estimate.estimateId}', '${sessionId}')">
+                        <button class="pdf-download-btn" onclick="downloadEstimatePDF('${estimate.estimateId}', '${currentSessionId}')">
                             📄 Скачать PDF с коммерческим предложением
                         </button>
                     </div>` : ''}
@@ -3154,6 +3159,13 @@
                 
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Логируем для отладки
+                console.log('✅ Добавлена утвержденная смета в чат:', {
+                    estimateId: estimate.estimateId,
+                    sessionId: currentSessionId,
+                    hasPdf: hasPdf
+                });
             }
 
             // Функция для скачивания PDF

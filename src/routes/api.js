@@ -166,7 +166,8 @@ router.get('/estimate-updates/:sessionId', async (req, res) => {
                     estimate: {
                         message: estimateMessage.content,
                         approvedAt: estimateMessage.metadata.approvedAt,
-                        estimateId: estimateMessage.metadata.estimateId
+                        estimateId: estimateMessage.metadata.estimateId,
+                        pdfPath: estimateMessage.metadata.pdfPath || null
                     }
                 });
                 
@@ -223,7 +224,8 @@ router.get('/estimate-updates/:sessionId', async (req, res) => {
                         estimate: {
                             message: estimateMessage.content,
                             approvedAt: estimateMessage.metadata.approvedAt,
-                            estimateId: estimateMessage.metadata.estimateId
+                            estimateId: estimateMessage.metadata.estimateId,
+                            pdfPath: estimateMessage.metadata.pdfPath || null
                         }
                     });
                     
