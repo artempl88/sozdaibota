@@ -313,7 +313,10 @@ class ChatController {
                 success: true,
                 message: finalResponse,
                 hasEstimate: hasEstimate,
-                estimateAlreadySent: session.estimateSent ? true : false,
+                estimateAlreadySent: session.estimateSent || false,
+                estimateSent: session.estimateSent || false,
+                estimateSentAt: session.estimateSentAt || null,
+                estimateApproved: session.estimateApproved || false,
                 // Добавляем информацию об утвержденной смете
                 approvedEstimate: approvedEstimate
             });
