@@ -165,8 +165,18 @@ class ChatController {
 
             // Сохраняем историю чата в PreChatForm
             session.chatHistory.push(
-                { role: 'user', content: message },
-                { role: 'assistant', content: gptResponse }
+                { 
+                    role: 'user', 
+                    content: message,
+                    timestamp: new Date(),
+                    metadata: { messageType: 'text' }
+                },
+                { 
+                    role: 'assistant', 
+                    content: gptResponse,
+                    timestamp: new Date(),
+                    metadata: { messageType: 'text' }
+                }
             );
             await session.save();
 
@@ -413,8 +423,18 @@ class ChatController {
 
             // Сохраняем историю
             session.chatHistory.push(
-                { role: 'user', content: transcription },
-                { role: 'assistant', content: gptResponse }
+                { 
+                    role: 'user', 
+                    content: transcription,
+                    timestamp: new Date(),
+                    metadata: { messageType: 'text' }
+                },
+                { 
+                    role: 'assistant', 
+                    content: gptResponse,
+                    timestamp: new Date(),
+                    metadata: { messageType: 'text' }
+                }
             );
 
             await session.save();
@@ -941,7 +961,12 @@ class ChatController {
 
             // Фильтруем только текстовые сообщения
             const chatHistory = session.chatHistory
-                .filter(msg => !msg.metadata || msg.metadata.messageType === 'text')
+                .filter(msg => {
+                    if (!msg.metadata) return true; // Пропускаем обычные сообщения
+                    if (msg.metadata.messageType === 'text') return true;
+                    if (msg.metadata.messageType === 'approved_estimate') return false;
+                    return true;
+                })
                 .map(msg => ({
                     role: msg.role,
                     content: msg.content,
