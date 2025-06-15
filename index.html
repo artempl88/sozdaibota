@@ -1286,6 +1286,43 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Индикатор сохранения */
+        .save-indicator {
+            position: absolute;
+            top: 10px;
+            right: 80px;
+            background: #4caf50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+        }
+
+        /* Предупреждение о лимите localStorage */
+        .storage-warning {
+            background: #ff9800;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 10px;
+            font-size: 0.85rem;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .storage-warning.show {
+            display: flex;
+        }
     </style>
 </head>
 <body>
@@ -1726,17 +1763,26 @@
                         formEndpoint: '/api/pre-chat-form',
                         messageEndpoint: '/api/pre-chat-message',
                         historyEndpoint: '/api/pre-chat-history',
-                        sessionCheckEndpoint: '/api/check-session'
+                        sessionCheckEndpoint: '/api/check-session',
+                        saveHistoryEndpoint: '/api/save-chat-history'
                     };
 
                     this.elements = {};
                     this.listeners = [];
+                    this.autoSaveInterval = null;
                 }
                 
                 init() {
                     this.cacheElements();
                     this.bindEvents();
                     this.checkExistingSession();
+                    
+                    // ДОБАВИТЬ В КОНЕЦ МЕТОДА init()
+                    this.startAutoSave();
+
+                    window.addEventListener('beforeunload', () => {
+                        this.saveHistoryToLocalStorage();
+                    });
                 }
 
                 cacheElements() {
@@ -2003,6 +2049,13 @@
                         // Останавливаем отслеживание сметы
                         stopEstimateTracking();
                         
+                        // ДОБАВИТЬ ПОСЛЕ stopEstimateTracking();
+                        this.saveHistoryToLocalStorage();
+
+                        if (this.sessionManager.sessionId) {
+                            localStorage.removeItem(`gpt_history_${this.sessionManager.sessionId}`);
+                        }
+                        
                         // Очищаем localStorage
                         localStorage.removeItem('sessionId');
                         localStorage.removeItem('chatHistory');
@@ -2074,6 +2127,9 @@
                     try {
                         console.log('🔍 Проверяем существующую сессию...');
                         
+                        // ДОБАВИТЬ ПОСЛЕ console.log
+                        const localHistoryLoaded = this.loadHistoryFromLocalStorage();
+                        
                         const response = await fetch(this.apiConfig.sessionCheckEndpoint, {
                             method: 'POST',
                             headers: {
@@ -2096,9 +2152,16 @@
                             this.hideForm();
                             this.showChatInterface();
                             
-                            await this.loadChatHistory();
+                            // ЗАМЕНИТЬ await this.loadChatHistory(); НА:
+                            if (!localHistoryLoaded) {
+                                await this.loadChatHistory();
+                            } else {
+                                this.displayLoadedHistory();
+                            }
                         } else {
                             console.log('📝 Новый пользователь, показываем форму анкеты');
+                            // ДОБАВИТЬ В else БЛОК
+                            this.clearOldLocalStorageData();
                         }
                         
                     } catch (error) {
@@ -2336,6 +2399,8 @@
                     }
                     
                     this.addMessage('user', userMessage);
+                    this.conversationHistory.push({ role: 'user', content: userMessage });
+                    
                     this.showTypingIndicator();
                     
                     try {
@@ -2356,6 +2421,8 @@
                         
                         if (result.success) {
                             this.addMessage('assistant', result.message);
+                            this.conversationHistory.push({ role: 'assistant', content: result.message });
+                            this.saveHistoryToLocalStorage();
                             
                             // НОВОЕ: Проверяем, была ли отправлена смета
                             if (result.hasEstimate && !result.estimateAlreadySent) {
@@ -2368,11 +2435,6 @@
                                 console.log('✅ Получена утвержденная смета!');
                                 addApprovedEstimateToChat(result.approvedEstimate);
                             }
-                            
-                            this.conversationHistory.push(
-                                { role: 'user', content: userMessage },
-                                { role: 'assistant', content: result.message }
-                            );
                         } else {
                             throw new Error(result.error || 'Ошибка обработки сообщения');
                         }
@@ -2381,6 +2443,7 @@
                         console.error('Ошибка отправки сообщения:', error);
                         this.hideTypingIndicator();
                         this.addMessage('assistant', 'Извините, произошла ошибка. Попробуйте еще раз.');
+                        this.conversationHistory.pop();
                     }
                 }
 
@@ -2682,9 +2745,137 @@
                 }
 
                 destroy() {
+                    // ДОБАВИТЬ В НАЧАЛО destroy()
+                    this.saveHistoryToLocalStorage();
+                    this.stopAutoSave();
+                    
                     this.listeners.forEach(removeListener => removeListener());
                     this.listeners = [];
                     this.elements = {};
+                }
+
+                // НОВЫЙ МЕТОД 1: Сохранение в localStorage
+                saveHistoryToLocalStorage() {
+                    if (this.sessionManager.sessionId && this.conversationHistory.length > 0) {
+                        const historyData = {
+                            sessionId: this.sessionManager.sessionId,
+                            formData: this.formData,
+                            conversationHistory: this.conversationHistory,
+                            timestamp: Date.now()
+                        };
+                        
+                        localStorage.setItem(`gpt_history_${this.sessionManager.sessionId}`, JSON.stringify(historyData));
+                        console.log('💾 История сохранена в localStorage');
+                    }
+                }
+
+                // НОВЫЙ МЕТОД 2: Загрузка из localStorage
+                loadHistoryFromLocalStorage() {
+                    if (this.sessionManager.sessionId) {
+                        const savedData = localStorage.getItem(`gpt_history_${this.sessionManager.sessionId}`);
+                        
+                        if (savedData) {
+                            try {
+                                const historyData = JSON.parse(savedData);
+                                
+                                const dayInMs = 24 * 60 * 60 * 1000;
+                                if (Date.now() - historyData.timestamp < dayInMs) {
+                                    this.conversationHistory = historyData.conversationHistory || [];
+                                    this.formData = historyData.formData || null;
+                                    console.log('📂 История загружена из localStorage');
+                                    return true;
+                                } else {
+                                    localStorage.removeItem(`gpt_history_${this.sessionManager.sessionId}`);
+                                }
+                            } catch (error) {
+                                console.error('Ошибка загрузки истории из localStorage:', error);
+                            }
+                        }
+                    }
+                    return false;
+                }
+
+                // НОВЫЙ МЕТОД 3: Автосохранение
+                startAutoSave() {
+                    this.autoSaveInterval = setInterval(() => {
+                        this.saveHistoryToLocalStorage();
+                    }, 30000); // каждые 30 секунд
+                }
+
+                // НОВЫЙ МЕТОД 4: Остановка автосохранения
+                stopAutoSave() {
+                    if (this.autoSaveInterval) {
+                        clearInterval(this.autoSaveInterval);
+                        this.autoSaveInterval = null;
+                    }
+                }
+
+                // НОВЫЙ МЕТОД 5: Отображение загруженной истории
+                displayLoadedHistory() {
+                    if (this.elements.messages) {
+                        this.elements.messages.innerHTML = '';
+                    }
+                    
+                    this.isLoadingHistory = true;
+                    
+                    this.conversationHistory.forEach(msg => {
+                        this.addMessage(msg.role, msg.content);
+                    });
+                    
+                    this.isLoadingHistory = false;
+                    
+                    console.log(`📜 Отображено ${this.conversationHistory.length} сообщений`);
+                    
+                    setTimeout(() => {
+                        this.scrollToLatestMessage();
+                    }, 300);
+                }
+
+                // НОВЫЙ МЕТОД 6: Очистка старых данных
+                clearOldLocalStorageData() {
+                    const keys = Object.keys(localStorage);
+                    const weekInMs = 7 * 24 * 60 * 60 * 1000;
+                    
+                    keys.forEach(key => {
+                        if (key.startsWith('gpt_history_')) {
+                            try {
+                                const data = JSON.parse(localStorage.getItem(key));
+                                if (data.timestamp && Date.now() - data.timestamp > weekInMs) {
+                                    localStorage.removeItem(key);
+                                    console.log(`🗑️ Удалена устаревшая история: ${key}`);
+                                }
+                            } catch (error) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+                    });
+                }
+
+                // НОВЫЙ МЕТОД 7: Экспорт истории
+                exportChatHistory() {
+                    if (this.conversationHistory.length === 0) {
+                        alert('История чата пуста');
+                        return;
+                    }
+                    
+                    const exportData = {
+                        sessionId: this.sessionManager.sessionId,
+                        formData: this.formData,
+                        conversationHistory: this.conversationHistory,
+                        exportDate: new Date().toISOString()
+                    };
+                    
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `chat_history_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    console.log('📥 История чата экспортирована');
                 }
             }
 
@@ -3059,8 +3250,12 @@
                 // Initialize managers
                 gptAssistant = new GPTAssistant();
                 gptAssistant.init();
+                window.gptAssistant = gptAssistant; // ДОБАВИТЬ ЭТО для доступа из консоли
                 
                 mobileMenuManager = new MobileMenuManager();
+
+                // Проверяем размер localStorage каждые 5 минут
+                setInterval(checkLocalStorageSize, 5 * 60 * 1000);
 
                 // Запрашиваем разрешение на уведомления для сметы
                 if ('Notification' in window && Notification.permission === 'default') {
@@ -3163,6 +3358,69 @@
                 }
             });
 
+            // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ GPT WIDGET ===
+
+            // Функция для проверки размера localStorage
+            function checkLocalStorageSize() {
+                let totalSize = 0;
+                for (let key in localStorage) {
+                    if (localStorage.hasOwnProperty(key)) {
+                        totalSize += localStorage[key].length + key.length;
+                    }
+                }
+                
+                const sizeInMB = totalSize / 1024 / 1024;
+                
+                if (sizeInMB > 4) {
+                    const warning = document.getElementById('storageWarning');
+                    if (warning) {
+                        warning.classList.add('show');
+                    }
+                    return true;
+                }
+                
+                return false;
+            }
+
+            // Глобальная функция для отладки
+            window.gptDebug = {
+                getHistorySize: function() {
+                    if (!window.gptAssistant || !window.gptAssistant.sessionManager.sessionId) {
+                        return 'Нет активной сессии';
+                    }
+                    
+                    const key = `gpt_history_${window.gptAssistant.sessionManager.sessionId}`;
+                    const data = localStorage.getItem(key);
+                    
+                    if (data) {
+                        const sizeInKB = data.length / 1024;
+                        return `${sizeInKB.toFixed(2)} KB`;
+                    }
+                    
+                    return '0 KB';
+                },
+                
+                getAllSessions: function() {
+                    const sessions = [];
+                    for (let key in localStorage) {
+                        if (key.startsWith('gpt_history_')) {
+                            try {
+                                const data = JSON.parse(localStorage.getItem(key));
+                                sessions.push({
+                                    sessionId: key.replace('gpt_history_', ''),
+                                    messagesCount: data.conversationHistory ? data.conversationHistory.length : 0,
+                                    lastSaved: new Date(data.timestamp).toLocaleString('ru-RU')
+                                });
+                            } catch (e) {
+                                console.error('Ошибка парсинга сессии:', key);
+                            }
+                        }
+                    }
+                    return sessions;
+                }
+            };
+
+            // Mobile Menu Manager
         })();
     </script>
 

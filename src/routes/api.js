@@ -527,6 +527,56 @@ router.get('/chat-history/:sessionId', (req, res) => ChatController.getChatHisto
 // Добавьте этот новый роут для истории анкетного чата
 router.get('/pre-chat-history/:sessionId', (req, res) => ChatController.getPreChatHistory(req, res));
 
+// История GPT чата
+router.get('/gpt-chat-history/:sessionId', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        logger.info('Запрос истории GPT чата', { sessionId });
+        
+        const { Conversation } = require('../models');
+        
+        if (!Conversation) {
+            return res.json({
+                success: true,
+                conversation: [],
+                message: 'База данных недоступна'
+            });
+        }
+        
+        const conversation = await Conversation.findBySessionId(sessionId);
+        
+        if (!conversation) {
+            return res.json({
+                success: true,
+                conversation: []
+            });
+        }
+        
+        // Преобразуем сообщения в нужный формат
+        const formattedMessages = conversation.messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp
+        }));
+        
+        res.json({
+            success: true,
+            conversation: formattedMessages,
+            mode: conversation.mode || 'chat',
+            hasEstimate: !!conversation.estimate,
+            estimateStatus: conversation.estimateStatus
+        });
+        
+    } catch (error) {
+        logger.error('Ошибка получения истории GPT чата:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Не удалось получить историю чата'
+        });
+    }
+});
+
 // === АНАЛИТИКА ===
 
 // Общая аналитика - изменяем на POST так как метод ожидает body
