@@ -2007,6 +2007,56 @@
                 }
             };
 
+            // Функция для скачивания PDF (локальная для IIFE)
+            async function downloadEstimatePDF(estimateId, sessionId) {
+                try {
+                    console.log('📄 Скачиваем PDF сметы...', { estimateId, sessionId });
+                    
+                    if (!estimateId || !sessionId) {
+                        throw new Error('Отсутствуют необходимые параметры для скачивания');
+                    }
+                    
+                    const response = await fetch('/api/download-estimate-pdf', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            estimateId: estimateId,
+                            sessionId: sessionId
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const blob = await response.blob();
+                    
+                    if (blob.size === 0) {
+                        throw new Error('Получен пустой файл');
+                    }
+                    
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `смета_${estimateId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    console.log('✅ PDF успешно скачан');
+                    
+                } catch (error) {
+                    console.error('❌ Ошибка скачивания PDF:', error);
+                    alert('Ошибка при скачивании PDF: ' + error.message);
+                }
+            }
+
+            // Делаем функцию глобально доступной
+            window.downloadEstimatePDF = downloadEstimatePDF;
+
             // Session Manager
             class SessionManager {
                 constructor() {
@@ -2361,7 +2411,9 @@
                         console.log('🔄 Начинаем новый чат...');
                         
                         // Останавливаем отслеживание сметы
-                        stopEstimateTracking();
+                        if (typeof window.stopEstimateTracking === 'function') {
+                            window.stopEstimateTracking();
+                        }
                         
                         // ДОБАВИТЬ ПОСЛЕ stopEstimateTracking();
                         this.saveHistoryToLocalStorage();
