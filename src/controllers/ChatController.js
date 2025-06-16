@@ -286,7 +286,7 @@ class ChatController {
 
             // Проверяем, есть ли утвержденная смета, которую нужно показать
             let approvedEstimate = null;
-            if (session.estimateApproved) {
+            if (session.estimateApproved && !session.estimateDeliveredToClient) {
                 // Находим сообщение с утвержденной сметой
                 const estimateMessage = session.chatHistory
                     .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
@@ -300,12 +300,10 @@ class ChatController {
                         pdfPath: estimateMessage.metadata.pdfPath || null
                     };
                     
-                    // Помечаем, что смета доставлена клиенту
-                    session.estimateDeliveredToClient = true;
-                    session.estimateDeliveredAt = new Date();
-                    await session.save();
+                    // НЕ устанавливаем estimateDeliveredToClient здесь!
+                    // Это должно произойти только после реального отображения в UI через подтверждение
                     
-                    logger.info('Утвержденная смета доставлена клиенту', { sessionId });
+                    logger.info('Утвержденная смета найдена и будет отправлена клиенту', { sessionId });
                 }
             }
 
@@ -805,7 +803,7 @@ class ChatController {
         }
     }
 
-    // Проверка утвержденной сметы
+    // Проверка утвержденной сметы с принудительной загрузкой из БД
     async checkApprovedEstimate(req, res) {
         try {
             const { sessionId } = req.params;
@@ -817,29 +815,50 @@ class ChatController {
                 });
             }
             
-            logger.info('Проверка утвержденной сметы', { sessionId });
+            logger.info('🔍 Проверка утвержденной сметы', { 
+                sessionId,
+                timestamp: new Date().toISOString()
+            });
             
-            // Находим сессию
-            const session = await PreChatForm.findOne({ sessionId });
+            // ВАЖНО: Принудительно загружаем свежие данные из БД
+            // Отключаем mongoose кеш для этого запроса
+            const session = await PreChatForm.findOne({ sessionId }).lean().exec();
             
             if (!session) {
+                logger.warn('❌ Сессия не найдена', { sessionId });
                 return res.status(404).json({
                     success: false,
                     error: 'Сессия не найдена'
                 });
             }
             
-            // Проверяем, есть ли утвержденная смета
+            logger.info('📊 Статус сессии из БД', {
+                sessionId,
+                estimateApproved: session.estimateApproved,
+                estimateDeliveredToClient: session.estimateDeliveredToClient,
+                approvedEstimateId: session.approvedEstimateId,
+                chatHistoryLength: session.chatHistory?.length || 0
+            });
+            
+            // Проверяем есть ли утвержденная смета
             if (session.estimateApproved && session.approvedEstimateId) {
-                // Находим последнее сообщение со сметой
+                // Ищем сообщение со сметой в истории чата
                 const estimateMessage = session.chatHistory
-                    .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
-                    .pop();
+                    ?.filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
+                    ?.pop(); // Берем последнее
                 
                 if (estimateMessage) {
-                    logger.info('Найдена утвержденная смета', { 
+                    logger.info('✅ Найдена утвержденная смета', { 
                         sessionId,
-                        estimateId: session.approvedEstimateId 
+                        estimateId: estimateMessage.metadata.estimateId,
+                        approvedAt: estimateMessage.metadata.approvedAt
+                    });
+                    
+                    // Отправляем клиенту
+                    res.set({
+                        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
                     });
                     
                     return res.json({
@@ -848,24 +867,43 @@ class ChatController {
                         estimate: {
                             message: estimateMessage.content,
                             approvedAt: estimateMessage.metadata.approvedAt,
-                            estimateId: estimateMessage.metadata.estimateId,
+                            estimateId: estimateMessage.metadata.estimateId || session.approvedEstimateId,
                             pdfPath: estimateMessage.metadata.pdfPath || null
+                        },
+                        debug: {
+                            timestamp: new Date().toISOString(),
+                            delivered: session.estimateDeliveredToClient,
+                            approved: session.estimateApproved
                         }
                     });
+                } else {
+                    logger.warn('⚠️ Смета утверждена, но сообщение не найдено', { sessionId });
                 }
             }
             
             // Смета еще не утверждена
+            res.set({
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            });
+            
             res.json({
                 success: true,
-                hasApprovedEstimate: false
+                hasApprovedEstimate: false,
+                debug: {
+                    timestamp: new Date().toISOString(),
+                    estimateApproved: session.estimateApproved,
+                    estimateSent: session.estimateSent
+                }
             });
             
         } catch (error) {
-            logger.error('Ошибка проверки утвержденной сметы:', error);
+            logger.error('❌ Ошибка проверки утвержденной сметы:', error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка проверки сметы'
+                error: 'Ошибка проверки сметы',
+                details: error.message
             });
         }
     }

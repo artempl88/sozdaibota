@@ -705,6 +705,37 @@ class TelegramService {
                     estimateApproved: savedSession.estimateApproved,
                     approvedAt: savedSession.estimateApprovedAt
                 });
+                
+                // Принудительно сбрасываем кеш mongoose для этой сессии
+                const mongoose = require('mongoose');
+                mongoose.connection.db.collection('prechatforms').findOne(
+                    { sessionId: sessionId },
+                    { projection: { estimateApproved: 1 } }
+                ).then(doc => {
+                    logger.info('✅ Прямая проверка MongoDB:', {
+                        sessionId,
+                        estimateApproved: doc?.estimateApproved
+                    });
+                }).catch(err => {
+                    logger.warn('⚠️ Ошибка прямой проверки MongoDB:', err.message);
+                });
+
+                // Отправляем webhook для пробуждения клиента (опционально)
+                try {
+                    const axios = require('axios');
+                    const appUrl = process.env.APP_URL || 'http://localhost:3001';
+                    
+                    axios.post(`${appUrl}/api/notify-estimate-approved`, {
+                        sessionId: sessionId,
+                        estimateId: estimateId
+                    }, {
+                        timeout: 5000 // 5 секунд таймаут
+                    }).catch(err => {
+                        logger.warn('⚠️ Не удалось отправить webhook:', err.message);
+                    });
+                } catch (e) {
+                    logger.warn('⚠️ Axios недоступен для webhook');
+                }
 
                 // Обновляем сообщение в Telegram
                 await this.bot.editMessageText(

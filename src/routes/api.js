@@ -127,7 +127,7 @@ router.post('/quick-estimate', (req, res) => ChatController.getQuickEstimate(req
 // Отправка утвержденной сметы
 router.post('/send-approved-estimate', (req, res) => ChatController.sendApprovedEstimate(req, res));
 
-// Server-Sent Events для real-time обновлений
+// Server-Sent Events для real-time обновлений (УЛУЧШЕННАЯ ВЕРСИЯ)
 router.get('/estimate-updates/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
     
@@ -135,136 +135,129 @@ router.get('/estimate-updates/:sessionId', async (req, res) => {
         return res.status(400).json({ error: 'Не указан ID сессии' });
     }
     
-    logger.info('🔌 SSE соединение установлено', { sessionId });
-    
-    // Настройка SSE
-    res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+    logger.info('🔌 SSE соединение установлено', { 
+        sessionId,
+        timestamp: new Date().toISOString()
     });
     
-    // Отправляем начальное сообщение для подтверждения соединения
-    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'SSE соединение установлено' })}\n\n`);
+    // Настройка SSE с отключением кеширования
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no' // Для nginx
+    });
     
-    // ИСПРАВЛЕНО: НЕ проверяем при подключении, только в периодической проверке
-    // Это позволяет избежать race condition
+    // Отправляем начальное сообщение
+    res.write(`data: ${JSON.stringify({ 
+        type: 'connected', 
+        message: 'SSE соединение установлено',
+        timestamp: Date.now()
+    })}\n\n`);
     
-    // Периодическая проверка
+    // Флаг для отслеживания отправленных смет
+    const sentEstimates = new Set();
+    
+    // Периодическая проверка с высокой частотой
     let checkCount = 0;
     const interval = setInterval(async () => {
         try {
             checkCount++;
-            logger.info(`🔍 SSE проверка #${checkCount} для сессии ${sessionId}`);
+            
+            // Каждые 10 проверок логируем статус
+            if (checkCount % 10 === 0) {
+                logger.info(`🔍 SSE проверка #${checkCount} для сессии ${sessionId}`);
+            }
             
             const { PreChatForm } = require('../models');
-            const session = await PreChatForm.findOne({ sessionId });
+            
+            // Принудительно загружаем свежие данные
+            const session = await PreChatForm.findOne({ sessionId })
+                .lean()
+                .exec();
             
             if (!session) {
-                logger.warn('SSE: Сессия не найдена', { sessionId });
+                if (checkCount % 10 === 0) {
+                    logger.warn('SSE: Сессия не найдена', { sessionId });
+                }
                 return;
             }
             
-            logger.info('📊 SSE: Детальный статус сессии', {
-                sessionId,
-                estimateApproved: session.estimateApproved,
-                estimateDeliveredToClient: session.estimateDeliveredToClient,
-                estimateApprovedAt: session.estimateApprovedAt,
-                chatHistoryLength: session.chatHistory.length,
-                hasApprovedMessage: session.chatHistory.some(msg => 
-                    msg.metadata && msg.metadata.messageType === 'approved_estimate'
-                ),
-                approvedMessagesCount: session.chatHistory.filter(msg => 
-                    msg.metadata && msg.metadata.messageType === 'approved_estimate'
-                ).length
-            });
-            
-            // ИСПРАВЛЕНО: Проверяем только неотправленные утвержденные сметы
-            if (session.estimateApproved && !session.estimateDeliveredToClient) {
-                logger.info('✅ SSE: Найдена утвержденная смета для отправки!', { sessionId });
-                
-                const estimateMessage = session.chatHistory
-                    .filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
-                    .pop(); // Берем последнюю утвержденную смету
-                
-                if (estimateMessage) {
-                    logger.info('📤 SSE: Отправляем смету клиенту', { 
+            // Проверяем есть ли новая утвержденная смета
+            if (session.estimateApproved && session.approvedEstimateId) {
+                // Проверяем, не отправляли ли мы уже эту смету
+                if (!sentEstimates.has(session.approvedEstimateId)) {
+                    
+                    logger.info('✅ SSE: Обнаружена новая утвержденная смета!', {
                         sessionId,
-                        estimateId: estimateMessage.metadata.estimateId,
-                        approvedAt: estimateMessage.metadata.approvedAt
+                        estimateId: session.approvedEstimateId,
+                        checkCount
                     });
                     
-                    // Отправляем утвержденную смету клиенту
-                    const data = JSON.stringify({
-                        type: 'approved_estimate',
-                        estimate: {
-                            message: estimateMessage.content,
-                            approvedAt: estimateMessage.metadata.approvedAt,
-                            estimateId: estimateMessage.metadata.estimateId,
-                            pdfPath: estimateMessage.metadata.pdfPath || null
-                        }
-                    });
+                    // Находим сообщение со сметой
+                    const estimateMessage = session.chatHistory
+                        ?.filter(msg => msg.metadata && msg.metadata.messageType === 'approved_estimate')
+                        ?.pop();
                     
-                    res.write(`data: ${data}\n\n`);
-                    logger.info('✅ SSE: Смета успешно отправлена клиенту', { sessionId });
-                    
-                    // ИСПРАВЛЕНО: Помечаем как доставленную только после успешной отправки
-                    session.estimateDeliveredToClient = true;
-                    session.estimateDeliveredAt = new Date();
-                    await session.save();
-                    
-                    logger.info('✅ SSE: Статус обновлен - смета доставлена', { sessionId });
-                    
-                    // УБРАНО: Не закрываем соединение сразу, даем время клиенту обработать
-                    // Соединение закроется по таймауту или когда клиент отключится
-                } else {
-                    logger.warn('⚠️ SSE: Сообщение со сметой не найдено, хотя estimateApproved=true', { 
-                        sessionId,
-                        chatHistoryLength: session.chatHistory.length 
-                    });
+                    if (estimateMessage) {
+                        logger.info('📤 SSE: Отправляем смету клиенту', { 
+                            sessionId,
+                            estimateId: estimateMessage.metadata.estimateId
+                        });
+                        
+                        // Отправляем данные клиенту
+                        const eventData = {
+                            type: 'approved_estimate',
+                            estimate: {
+                                message: estimateMessage.content,
+                                approvedAt: estimateMessage.metadata.approvedAt,
+                                estimateId: estimateMessage.metadata.estimateId || session.approvedEstimateId,
+                                pdfPath: estimateMessage.metadata.pdfPath || null
+                            },
+                            timestamp: Date.now()
+                        };
+                        
+                        res.write(`event: estimate\n`);
+                        res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+                        
+                        // Помечаем как отправленную
+                        sentEstimates.add(session.approvedEstimateId);
+                        
+                        logger.info('✅ SSE: Смета успешно отправлена', { 
+                            sessionId,
+                            estimateId: session.approvedEstimateId
+                        });
+                        
+                        // НЕ обновляем БД здесь чтобы избежать race condition
+                        // Пусть клиент сам решит когда пометить как доставленную
+                    }
                 }
-            } else if (session.estimateApproved && session.estimateDeliveredToClient) {
-                logger.info('ℹ️ SSE: Смета уже доставлена клиенту', { 
-                    sessionId,
-                    deliveredAt: session.estimateDeliveredAt 
-                });
-            } else {
-                logger.info('ℹ️ SSE: Смета еще не утверждена', { sessionId });
             }
         } catch (error) {
-            logger.error('❌ SSE ошибка проверки сметы:', error);
+            logger.error('❌ SSE ошибка проверки:', error);
         }
-    }, 1000); // ИСПРАВЛЕНО: Увеличиваем частоту проверки до каждой секунды
+    }, 500); // Проверяем каждые 0.5 секунды для быстрого отклика
     
-    // Отправляем heartbeat каждые 30 секунд чтобы соединение не закрылось
+    // Heartbeat каждые 20 секунд
     const heartbeat = setInterval(() => {
         try {
-            res.write(':heartbeat\n\n');
+            res.write(`:heartbeat ${Date.now()}\n\n`);
         } catch (error) {
-            logger.warn('⚠️ SSE heartbeat ошибка:', error);
             clearInterval(heartbeat);
             clearInterval(interval);
         }
-    }, 30000);
+    }, 20000);
     
-    // Очистка при закрытии соединения
+    // Очистка при закрытии
     req.on('close', () => {
         clearInterval(interval);
         clearInterval(heartbeat);
-        logger.info('🔌 SSE соединение закрыто клиентом', { sessionId });
+        logger.info('🔌 SSE соединение закрыто', { 
+            sessionId,
+            totalChecks: checkCount,
+            sentEstimates: sentEstimates.size
+        });
     });
-    
-    // Максимальное время соединения - 10 минут
-    setTimeout(() => {
-        try {
-            res.end();
-        } catch (error) {
-            logger.warn('⚠️ SSE закрытие по таймауту ошибка:', error);
-        }
-        clearInterval(interval);
-        clearInterval(heartbeat);
-        logger.info('⏱️ SSE соединение закрыто по таймауту', { sessionId });
-    }, 600000); // Увеличиваем таймаут до 10 минут
 });
 
 // Принудительная отправка сметы
@@ -311,6 +304,54 @@ router.post('/force-estimate', async (req, res) => {
 
 // Проверка утвержденной сметы
 router.get('/check-approved-estimate/:sessionId', (req, res) => ChatController.checkApprovedEstimate(req, res));
+
+// Подтверждение доставки сметы клиенту
+router.post('/confirm-estimate-delivery', async (req, res) => {
+    try {
+        const { sessionId, estimateId } = req.body;
+        
+        if (!sessionId) {
+            return res.status(400).json({
+                success: false,
+                error: 'sessionId обязателен'
+            });
+        }
+        
+        logger.info('📥 Подтверждение доставки сметы', { sessionId, estimateId });
+        
+        const { PreChatForm } = require('../models');
+        const session = await PreChatForm.findOne({ sessionId });
+        
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                error: 'Сессия не найдена'
+            });
+        }
+        
+        // Теперь безопасно помечаем как доставленную
+        session.estimateDeliveredToClient = true;
+        session.estimateDeliveredAt = new Date();
+        await session.save();
+        
+        logger.info('✅ Смета помечена как доставленная клиенту', { 
+            sessionId,
+            estimateId 
+        });
+        
+        res.json({
+            success: true,
+            message: 'Доставка подтверждена'
+        });
+        
+    } catch (error) {
+        logger.error('❌ Ошибка подтверждения доставки:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка сервера'
+        });
+    }
+});
 
 // НОВЫЙ: Тестовый endpoint для симуляции утверждения сметы
 router.post('/test-approve-estimate', async (req, res) => {
