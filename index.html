@@ -1650,6 +1650,290 @@
     </div>
 
     <script>
+        // ===== ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ОТСЛЕЖИВАНИЯ СМЕТ =====
+        // ВАЖНО: Эти функции должны быть глобальными и доступными везде
+        
+        // Глобальные переменные для отслеживания
+        window.estimateCheckInterval = null;
+        window.estimateSSE = null;
+        window.currentEstimateSessionId = null;
+        window.estimatePollingInterval = null;
+        window.estimateTrackingActive = false;
+
+        // Функция добавления сметы в чат - глобальная
+        window.addApprovedEstimateToChat = function(estimate) {
+            console.log('🎯 addApprovedEstimateToChat вызвана:', estimate);
+            
+            const chatMessages = document.getElementById('gptMessages');
+            if (!chatMessages) {
+                console.error('❌ Контейнер чата не найден');
+                return;
+            }
+            
+            // Проверяем дубликаты
+            const existingEstimate = document.querySelector(`.approved-estimate[data-estimate-id="${estimate.estimateId}"]`);
+            if (existingEstimate) {
+                console.log('⚠️ Смета уже существует в чате');
+                return;
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'gpt-message assistant approved-estimate';
+            messageDiv.setAttribute('data-estimate-id', estimate.estimateId);
+            
+            const currentSessionId = window.gptAssistant?.sessionManager?.sessionId || null;
+            
+            messageDiv.innerHTML = `
+                <div class="estimate-approved-badge">
+                    <span class="badge">✅ Коммерческое предложение готово!</span>
+                    <span class="time">${new Date(estimate.approvedAt).toLocaleString('ru-RU')}</span>
+                </div>
+                <div class="message-content">${window.formatEstimateMessage(estimate.message)}</div>
+                <div class="pdf-download-section">
+                    <button class="pdf-download-btn" onclick="downloadEstimatePDF('${estimate.estimateId}', '${currentSessionId}')">
+                        📄 Скачать PDF с коммерческим предложением
+                    </button>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            
+            // Плавная прокрутка
+            setTimeout(() => {
+                messageDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 100);
+            
+            // Обновляем историю
+            if (window.gptAssistant?.conversationHistory) {
+                window.gptAssistant.conversationHistory.push({
+                    role: 'assistant',
+                    content: estimate.message,
+                    isApprovedEstimate: true
+                });
+                window.gptAssistant.saveHistoryToLocalStorage();
+            }
+            
+            console.log('✅ Смета добавлена в чат');
+        };
+
+        window.formatEstimateMessage = function(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>')
+                .replace(/•/g, '&bull;');
+        };
+
+        // Главная функция запуска отслеживания
+        window.startEstimateTracking = function(sessionId) {
+            console.log('🚀 startEstimateTracking вызвана с sessionId:', sessionId);
+            
+            // Останавливаем предыдущее отслеживание
+            window.stopEstimateTracking();
+            
+            window.currentEstimateSessionId = sessionId;
+            window.estimateTrackingActive = true;
+            
+            // Показываем уведомление
+            const notice = document.getElementById('estimate-checking-notice');
+            if (notice) {
+                notice.classList.add('active');
+            }
+            
+            // Запускаем polling сразу
+            console.log('🔄 Запускаем polling...');
+            window.startEstimatePolling(sessionId);
+            
+            // Пробуем SSE
+            console.log('🔌 Пробуем подключить SSE...');
+            try {
+                window.estimateSSE = new window.EstimateSSEClient(sessionId);
+                window.estimateSSE.connect();
+            } catch (error) {
+                console.error('❌ Ошибка создания SSE:', error);
+            }
+        };
+
+        // Функция остановки отслеживания
+        window.stopEstimateTracking = function() {
+            console.log('🛑 Останавливаем отслеживание');
+            window.estimateTrackingActive = false;
+            
+            if (window.estimatePollingInterval) {
+                clearInterval(window.estimatePollingInterval);
+                window.estimatePollingInterval = null;
+            }
+            
+            if (window.estimateSSE) {
+                window.estimateSSE.disconnect();
+                window.estimateSSE = null;
+            }
+            
+            const notice = document.getElementById('estimate-checking-notice');
+            if (notice) {
+                notice.classList.remove('active');
+            }
+        };
+
+        // Polling функция
+        window.checkForApprovedEstimate = async function(sessionId) {
+            if (!sessionId) {
+                console.error('❌ sessionId не передан в checkForApprovedEstimate');
+                return false;
+            }
+            
+            try {
+                console.log('🔍 Проверяем смету (polling)...', { 
+                    sessionId, 
+                    url: `/api/check-approved-estimate/${sessionId}`,
+                    timestamp: new Date().toISOString() 
+                });
+                
+                const response = await fetch(`/api/check-approved-estimate/${sessionId}`);
+                const data = await response.json();
+                
+                console.log('📡 Ответ от сервера:', data);
+                
+                if (data.success && data.hasApprovedEstimate) {
+                    console.log('✅ Смета найдена!', data.estimate);
+                    
+                    // Проверяем дубликаты
+                    const existingEstimate = document.querySelector(`.approved-estimate[data-estimate-id="${data.estimate.estimateId}"]`);
+                    if (!existingEstimate) {
+                        window.stopEstimateTracking();
+                        window.addApprovedEstimateToChat(data.estimate);
+                        
+                        // Уведомление
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('🎉 Ваша смета утверждена!', {
+                                body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.'
+                            });
+                        }
+                        
+                        // Звук
+                        try {
+                            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE');
+                            audio.play().catch(e => console.log('Не удалось воспроизвести звук:', e));
+                        } catch (e) {}
+                    }
+                    
+                    return true;
+                }
+                
+                return false;
+            } catch (error) {
+                console.error('❌ Ошибка проверки сметы:', error);
+                return false;
+            }
+        };
+
+        // Запуск polling
+        window.startEstimatePolling = function(sessionId) {
+            console.log('⏱️ Запускаем polling для sessionId:', sessionId);
+            
+            // Останавливаем предыдущий
+            if (window.estimatePollingInterval) {
+                clearInterval(window.estimatePollingInterval);
+            }
+            
+            // Проверяем сразу
+            window.checkForApprovedEstimate(sessionId);
+            
+            // Запускаем интервал
+            window.estimatePollingInterval = setInterval(() => {
+                if (window.estimateTrackingActive) {
+                    window.checkForApprovedEstimate(sessionId);
+                } else {
+                    clearInterval(window.estimatePollingInterval);
+                    window.estimatePollingInterval = null;
+                }
+            }, 3000); // Каждые 3 секунды
+        };
+
+        // SSE Client класс тоже должен быть глобальным
+        window.EstimateSSEClient = class {
+            constructor(sessionId) {
+                this.sessionId = sessionId;
+                this.eventSource = null;
+                this.connected = false;
+            }
+            
+            connect() {
+                try {
+                    const url = `/api/estimate-updates/${this.sessionId}`;
+                    console.log('🔌 Подключаемся к SSE:', url);
+                    
+                    this.eventSource = new EventSource(url);
+                    
+                    this.eventSource.onopen = () => {
+                        console.log('✅ SSE подключен');
+                        this.connected = true;
+                    };
+                    
+                    this.eventSource.onmessage = (event) => {
+                        try {
+                            console.log('📨 SSE сообщение:', event.data);
+                            const data = JSON.parse(event.data);
+                            
+                            if (data.type === 'approved_estimate') {
+                                console.log('✅ Смета через SSE!');
+                                window.stopEstimateTracking();
+                                window.addApprovedEstimateToChat(data.estimate);
+                            }
+                        } catch (error) {
+                            console.error('❌ Ошибка SSE:', error);
+                        }
+                    };
+                    
+                    this.eventSource.onerror = (error) => {
+                        console.error('❌ SSE error:', error);
+                        this.connected = false;
+                    };
+                    
+                } catch (error) {
+                    console.error('❌ Ошибка создания SSE:', error);
+                }
+            }
+            
+            disconnect() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                    this.connected = false;
+                }
+            }
+        };
+
+        // Отладочная информация в консоль
+        window.estimateDebug = {
+            status: function() {
+                console.log('=== Estimate Tracking Status ===');
+                console.log('Active:', window.estimateTrackingActive);
+                console.log('Session ID:', window.currentEstimateSessionId);
+                console.log('Polling interval:', !!window.estimatePollingInterval);
+                console.log('SSE connected:', window.estimateSSE?.connected);
+                console.log('GPT session:', window.gptAssistant?.sessionManager?.sessionId);
+            },
+            
+            testTracking: function() {
+                const sessionId = window.gptAssistant?.sessionManager?.sessionId;
+                if (sessionId) {
+                    console.log('Starting test tracking for:', sessionId);
+                    window.startEstimateTracking(sessionId);
+                } else {
+                    console.error('No active session');
+                }
+            },
+            
+            forceCheck: function() {
+                const sessionId = window.gptAssistant?.sessionManager?.sessionId;
+                if (sessionId) {
+                    window.checkForApprovedEstimate(sessionId);
+                }
+            }
+        };
+
+        // ===== КОНЕЦ ГЛОБАЛЬНЫХ ФУНКЦИЙ =====
+
         // Модульная структура кода
         (function() {
             'use strict';
@@ -2419,19 +2703,26 @@
                             this.conversationHistory.push({ role: 'assistant', content: result.message });
                             this.saveHistoryToLocalStorage();
                             
-                            // НОВОЕ: Проверяем, была ли отправлена смета
+                            // ИСПРАВЛЕНИЕ: Проверяем и вызываем правильно
                             if (result.hasEstimate && !result.estimateAlreadySent) {
                                 console.log('📊 Смета отправлена менеджеру, начинаем отслеживание...', {
                                     sessionId: this.sessionManager.sessionId,
-                                    hasEstimate: result.hasEstimate
+                                    hasEstimate: result.hasEstimate,
+                                    timestamp: new Date().toISOString()
                                 });
-                                startEstimateTracking(this.sessionManager.sessionId);
+                                
+                                // Вызываем глобальную функцию
+                                if (typeof window.startEstimateTracking === 'function') {
+                                    window.startEstimateTracking(this.sessionManager.sessionId);
+                                } else {
+                                    console.error('❌ Функция startEstimateTracking не найдена!');
+                                }
                             }
 
-                            // НОВОЕ: Проверяем, есть ли уже утвержденная смета
+                            // Проверяем утвержденную смету
                             if (result.approvedEstimate) {
-                                console.log('✅ Получена утвержденная смета!');
-                                addApprovedEstimateToChat(result.approvedEstimate);
+                                console.log('✅ Получена утвержденная смета в ответе!');
+                                window.addApprovedEstimateToChat(result.approvedEstimate);
                             }
                         } else {
                             throw new Error(result.error || 'Ошибка обработки сообщения');
@@ -2669,26 +2960,6 @@
                             
                             console.log(`✅ Загружено ${result.chatHistory.length} сообщений`);
                             
-                            // ИСПРАВЛЕНИЕ: Проверяем время отправки сметы
-                            if (result.estimateSent && !result.estimateApproved) {
-                                // Проверяем, когда была отправлена смета
-                                const estimateSentAt = new Date(result.estimateSentAt || Date.now());
-                                const hoursSinceEstimate = (Date.now() - estimateSentAt) / (1000 * 60 * 60);
-                                
-                                // Если прошло меньше 2 часов - показываем уведомление и запускаем отслеживание
-                                if (hoursSinceEstimate < 2) {
-                                    console.log('⏰ Смета отправлена недавно, запускаем отслеживание...', {
-                                        sessionId: this.sessionManager.sessionId,
-                                        hoursSinceEstimate: hoursSinceEstimate.toFixed(2)
-                                    });
-                                    startEstimateTracking(this.sessionManager.sessionId);
-                                } else {
-                                    console.log('⏰ Смета устарела, не показываем уведомление об ожидании', {
-                                        hoursSinceEstimate: hoursSinceEstimate.toFixed(2)
-                                    });
-                                }
-                            }
-                            
                             // НОВОЕ: Проверяем наличие утвержденной сметы при загрузке
                             console.log('🔍 Проверяем наличие утвержденной сметы...');
                             await this.checkForApprovedEstimateOnLoad();
@@ -2720,15 +2991,62 @@
                         if (data.success && data.hasApprovedEstimate) {
                             console.log('✅ Найдена утвержденная смета при загрузке!', data.estimate);
                             
-                            // ИСПРАВЛЕНО: Используем новую логику с уникальными ID
-                            if (!isEstimateAlreadyDisplayed(data.estimate.estimateId)) {
-                                addApprovedEstimateToChat(data.estimate);
-                                showEstimateSuccessNotification();
+                            // ИСПРАВЛЕНО: Используем правильную проверку дублирования
+                            const existingEstimate = document.querySelector(`.approved-estimate[data-estimate-id="${data.estimate.estimateId}"]`);
+                            if (!existingEstimate) {
+                                console.log('📋 Добавляем смету в чат...');
+                                window.addApprovedEstimateToChat(data.estimate);
+                                
+                                // Уведомление
+                                if ('Notification' in window && Notification.permission === 'granted') {
+                                    new Notification('🎉 Ваша смета утверждена!', {
+                                        body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.'
+                                    });
+                                }
                             } else {
                                 console.log('📋 Смета уже отображена в чате');
                             }
                         } else {
-                            console.log('📋 Утвержденной сметы нет');
+                            console.log('📋 Утвержденной сметы нет - проверяем статус отправки...');
+                            
+                            // НОВОЕ: Проверяем историю чата на предмет отправленной но не утвержденной сметы
+                            const historyResponse = await fetch(`/api/pre-chat-history/${this.sessionManager.sessionId}`);
+                            const historyData = await historyResponse.json();
+                            
+                            if (historyData.success) {
+                                console.log('📊 Проверяем статус сметы:', {
+                                    estimateSent: historyData.estimateSent,
+                                    estimateApproved: historyData.estimateApproved,
+                                    estimateSentAt: historyData.estimateSentAt
+                                });
+                                
+                                // Если смета отправлена но не утверждена - запускаем отслеживание
+                                if (historyData.estimateSent && !historyData.estimateApproved) {
+                                    const estimateSentAt = new Date(historyData.estimateSentAt || Date.now());
+                                    const hoursSinceEstimate = (Date.now() - estimateSentAt) / (1000 * 60 * 60);
+                                    
+                                    // Если прошло меньше 4 часов - запускаем отслеживание
+                                    if (hoursSinceEstimate < 4) {
+                                        console.log('🚀 Смета отправлена, но не утверждена - запускаем отслеживание!', {
+                                            sessionId: this.sessionManager.sessionId,
+                                            hoursSinceEstimate: hoursSinceEstimate.toFixed(2)
+                                        });
+                                        
+                                        // Запускаем отслеживание
+                                        if (typeof window.startEstimateTracking === 'function') {
+                                            window.startEstimateTracking(this.sessionManager.sessionId);
+                                        } else {
+                                            console.error('❌ Функция startEstimateTracking не найдена!');
+                                        }
+                                    } else {
+                                        console.log('⏰ Смета слишком старая для отслеживания', {
+                                            hoursSinceEstimate: hoursSinceEstimate.toFixed(2)
+                                        });
+                                    }
+                                } else {
+                                    console.log('📝 Смета не отправлена или уже утверждена');
+                                }
+                            }
                         }
                     } catch (error) {
                         console.error('❌ Ошибка проверки утвержденной сметы:', error);
@@ -3082,9 +3400,16 @@
                 
                 handleApprovedEstimate(estimate) {
                     // Проверяем что смета еще не добавлена
-                    if (!isEstimateAlreadyDisplayed(estimate.estimateId)) {
-                        addApprovedEstimateToChat(estimate);
-                        showEstimateSuccessNotification();
+                    const existingEstimate = document.querySelector(`.approved-estimate[data-estimate-id="${estimate.estimateId}"]`);
+                    if (!existingEstimate) {
+                        window.addApprovedEstimateToChat(estimate);
+                        
+                        // Уведомление
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('🎉 Ваша смета утверждена!', {
+                                body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.'
+                            });
+                        }
                     }
                 }
                 
@@ -3206,10 +3531,18 @@
                     if (data.success && data.hasApprovedEstimate) {
                         console.log('✅ Смета найдена!', data.estimate);
                         
-                        // ИСПРАВЛЕНО: Используем уникальную проверку
-                        if (!isEstimateAlreadyDisplayed(data.estimate.estimateId)) {
-                            addApprovedEstimateToChat(data.estimate);
-                            showEstimateSuccessNotification();
+                        // ИСПРАВЛЕНО: Используем прямую проверку DOM
+                        const existingEstimate = document.querySelector(`.approved-estimate[data-estimate-id="${data.estimate.estimateId}"]`);
+                        if (!existingEstimate) {
+                            console.log('📋 Добавляем смету в чат через polling...');
+                            window.addApprovedEstimateToChat(data.estimate);
+                            
+                            // Уведомление
+                            if ('Notification' in window && Notification.permission === 'granted') {
+                                new Notification('🎉 Ваша смета утверждена!', {
+                                    body: 'Менеджер утвердил вашу смету. Проверьте детали в чате.'
+                                });
+                            }
                             
                             // Останавливаем отслеживание после успеха
                             stopEstimateTracking();
@@ -3530,6 +3863,48 @@
 
             // Mobile Menu Manager
         })();
+
+        // Глобальная функция для скачивания PDF
+        window.downloadEstimatePDF = async function(estimateId, sessionId) {
+            try {
+                console.log('📥 Запрашиваем PDF сметы...', { estimateId, sessionId });
+                
+                if (!sessionId && window.gptAssistant?.sessionManager) {
+                    sessionId = window.gptAssistant.sessionManager.sessionId;
+                }
+                
+                if (!sessionId || !estimateId) {
+                    throw new Error('Отсутствуют ID сессии или сметы');
+                }
+                
+                const response = await fetch(`/api/download-client-pdf/${sessionId}/${estimateId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `Коммерческое_предложение_${new Date().toISOString().split('T')[0]}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                console.log('✅ PDF загружен');
+                
+            } catch (error) {
+                console.error('❌ Ошибка загрузки PDF:', error);
+                alert('Не удалось загрузить PDF: ' + error.message);
+            }
+        };
+        
+        // Initialize everything
+        let gptAssistant = null;
+        let mobileMenuManager = null;
     </script>
 
     <!-- Schema.org structured data -->
