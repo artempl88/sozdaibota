@@ -1655,6 +1655,16 @@
         (function() {
             'use strict';
 
+            // Константа отладки (перемещена в начало)
+            const DEBUG_MODE = false; // Изменить на true для включения отладки
+            
+            // Функция условного логирования
+            function debugLog(...args) {
+                if (DEBUG_MODE) {
+                    console.log(...args);
+                }
+            }
+
             // Utility functions
             const Utils = {
                 // Безопасное получение элемента
@@ -1693,6 +1703,13 @@
                     return Date.now().toString(36) + Math.random().toString(36).substr(2);
                 }
             };
+
+            // Вспомогательная функция для безопасной остановки отслеживания
+            function safeStopTracking() {
+                if (window.stopEstimateTracking) {
+                    window.stopEstimateTracking();
+                }
+            }
 
             // Функция для скачивания PDF (локальная для IIFE)
             async function downloadEstimatePDF(estimateId, sessionId) {
@@ -1740,9 +1757,6 @@
                     alert('Ошибка при скачивании PDF: ' + error.message);
                 }
             }
-
-            // Делаем функцию глобально доступной
-            window.downloadEstimatePDF = downloadEstimatePDF;
 
             // Session Manager
             class SessionManager {
@@ -2097,12 +2111,10 @@
                     if (confirm('Вы уверены, что хотите начать новый чат? Текущая история будет очищена.')) {
                         console.log('🔄 Начинаем новый чат...');
                         
-                        // Останавливаем отслеживание сметы
-                        if (typeof window.stopEstimateTracking === 'function') {
-                            window.stopEstimateTracking();
-                        }
+                        // Используем безопасную функцию остановки
+                        safeStopTracking();
                         
-                        // ДОБАВИТЬ ПОСЛЕ stopEstimateTracking();
+                        // ДОБАВИТЬ ПОСЛЕ safeStopTracking();
                         this.saveHistoryToLocalStorage();
 
                         if (this.sessionManager.sessionId) {
@@ -3111,7 +3123,7 @@
                 // Initialize managers
                 gptAssistant = new GPTAssistant();
                 gptAssistant.init();
-                window.gptAssistant = gptAssistant; // ДОБАВИТЬ ЭТО для доступа из консоли
+                window.gptAssistant = gptAssistant;
                 
                 mobileMenuManager = new MobileMenuManager();
 
@@ -3127,9 +3139,7 @@
 
                 // Обработчик закрытия страницы для остановки отслеживания
                 window.addEventListener('beforeunload', () => {
-                    if (typeof window.stopEstimateTracking === 'function') {
-                        window.stopEstimateTracking();
-                    }
+                    safeStopTracking();
                 });
 
                 // Global reference for mobile menu
@@ -3346,18 +3356,7 @@
 
             // ===== ФУНКЦИИ ДЛЯ РАБОТЫ СО СМЕТАМИ =====
             
-            // Флаг отладки для управления логами
-            const DEBUG_MODE = false; // Изменить на true для включения отладки
-            
-            // Функция условного логирования
-            function debugLog(...args) {
-                if (DEBUG_MODE) {
-                    console.log(...args);
-                }
-            }
-
             // Глобальные переменные для отслеживания
-            let estimateCheckInterval = null;
             let estimateSSE = null;
             let currentEstimateSessionId = null;
             let estimatePollingInterval = null;
@@ -3638,6 +3637,7 @@
             }
 
             // Экспортируем все функции в глобальную область
+            window.downloadEstimatePDF = downloadEstimatePDF;
             window.addApprovedEstimateToChat = addApprovedEstimateToChat;
             window.formatEstimateMessage = formatEstimateMessage;
             window.startEstimateTracking = startEstimateTracking;
