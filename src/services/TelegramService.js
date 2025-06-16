@@ -705,7 +705,7 @@ class TelegramService {
                     estimateApproved: savedSession.estimateApproved,
                     approvedAt: savedSession.estimateApprovedAt
                 });
-                
+
                 // Обновляем сообщение в Telegram
                 await this.bot.editMessageText(
                     '✅ СМЕТА УТВЕРЖДЕНА!\n\n' +
@@ -748,7 +748,7 @@ class TelegramService {
                 session.approvedEstimateId = estimateId;
                 session.estimateDeliveredToClient = false;
                 await session.save();
-                
+
                 await this.bot.sendMessage(
                     chatId,
                     '⚠️ Смета утверждена, но произошла ошибка при генерации PDF.\n' +
