@@ -3351,6 +3351,50 @@
                     this.checkNow();
                     setTimeout(() => this.testSSE(), 2000);
                     setTimeout(() => this.monitor(), 4000);
+                },
+
+                // Новая функция для проверки последней утвержденной сметы
+                checkLastApproved: function() {
+                    console.log('📋 Проверяем последнюю утвержденную смету...');
+                    const sessionId = window.gptAssistant?.sessionManager?.sessionId;
+                    if (!sessionId) {
+                        console.log('❌ SessionId не найден');
+                        return;
+                    }
+                    
+                    fetch(`/api/check-approved-estimate/${sessionId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('📊 Результат проверки:', data);
+                            if (data.success && data.hasApprovedEstimate) {
+                                console.log('✅ Найдена утвержденная смета!');
+                                console.log('📄 ID сметы:', data.estimate.estimateId);
+                                console.log('⏰ Утверждена:', new Date(data.estimate.approvedAt).toLocaleString('ru-RU'));
+                            } else {
+                                console.log('📝 Утвержденной сметы пока нет');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('❌ Ошибка проверки:', error);
+                        });
+                },
+
+                // Функция для симуляции получения утвержденной сметы
+                simulateApproval: function() {
+                    console.log('🎭 Симуляция получения утвержденной сметы...');
+                    const mockEstimate = {
+                        estimateId: 'test_' + Date.now(),
+                        sessionId: window.gptAssistant?.sessionManager?.sessionId || 'test_session',
+                        message: '**🎉 Ваша смета готова!**\n\nЭто тестовая смета для проверки функциональности.\n\n• Разработка Telegram-бота: 25 000₽\n• Интеграция с CRM: 15 000₽\n• Настройка платежей: 10 000₽\n\n**Итого: 50 000₽**',
+                        approvedAt: new Date().toISOString()
+                    };
+                    
+                    if (typeof window.addApprovedEstimateToChat === 'function') {
+                        window.addApprovedEstimateToChat(mockEstimate);
+                        console.log('✅ Тестовая смета добавлена в чат');
+                    } else {
+                        console.log('❌ Функция addApprovedEstimateToChat недоступна');
+                    }
                 }
             };
 
